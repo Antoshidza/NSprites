@@ -29,14 +29,14 @@ namespace NSprites
                         if(parentEntity != Entity.Null)
                         {
                             DstEntityManager.AddComponentData(entity, new LocalPosition2D { value = worldPosition - parentWorldPosition });
-                            DstEntityManager.AddComponentData(entity, new Parent { value = parentEntity });
-                            DynamicBuffer<Child> GetChildBuffer(in Entity parentEntity)
+                            DstEntityManager.AddComponentData(entity, new Parent2D { value = parentEntity });
+                            DynamicBuffer<Child2D> GetChildBuffer(in Entity parentEntity)
                             {
-                                if(DstEntityManager.HasComponent<Child>(parentEntity))
-                                    return DstEntityManager.GetBuffer<Child>(parentEntity);
-                                return DstEntityManager.AddBuffer<Child>(parentEntity);
+                                if(DstEntityManager.HasComponent<Child2D>(parentEntity))
+                                    return DstEntityManager.GetBuffer<Child2D>(parentEntity);
+                                return DstEntityManager.AddBuffer<Child2D>(parentEntity);
                             }
-                            GetChildBuffer(parentEntity).Add(new Child { value = entity });
+                            GetChildBuffer(parentEntity).Add(new Child2D { value = entity });
                         }
 
                         for(int i = 0; i < transform.childCount; i++)

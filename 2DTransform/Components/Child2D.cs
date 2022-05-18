@@ -2,7 +2,7 @@
 
 namespace NSprites
 {
-    public struct Parent : IComponentData
+    public struct Child2D : IBufferElementData
     {
         public Entity value;
     }

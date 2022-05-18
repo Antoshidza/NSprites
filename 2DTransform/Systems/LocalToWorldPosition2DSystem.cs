@@ -13,7 +13,7 @@ namespace NSprites
             Entities
                 .WithNativeDisableContainerSafetyRestriction(translation2D_CDFE)
                 .WithReadOnly(translation2D_CDFE)
-                .ForEach((ref WorldPosition2D worldPosition, in Parent parent, in LocalPosition2D localPosition) =>
+                .ForEach((ref WorldPosition2D worldPosition, in Parent2D parent, in LocalPosition2D localPosition) =>
                 {
                     worldPosition.value = localPosition.value + translation2D_CDFE[parent.value].value;
                 }).ScheduleParallel();
