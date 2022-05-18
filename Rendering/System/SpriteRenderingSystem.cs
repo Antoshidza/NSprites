@@ -15,6 +15,7 @@ using UnityEngine.Rendering;
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float4>))]
 namespace NSprites
 {
+    [UpdateInGroup(typeof(PresentationSystemGroup))]
     public class SpriteRenderingSystem : SystemBase
     {
         //assuming that there is no batching for different materials/textures/other not-instanced properties we can define some kind of render archetypes
