@@ -217,10 +217,10 @@ namespace NSprites
                 public int Compare(SpriteData x, SpriteData y)
                 {
                     //can be rewrited with if statement
-                    return x.groupSortingIndex.CompareTo(y.groupSortingIndex) * 32
+                    return x.groupSortingIndex.CompareTo(y.groupSortingIndex) * -32 //less index -> later in render
                         + x.groupPosition.CompareTo(y.groupPosition) * 16
                         + x.groupID.CompareTo(y.groupID) * 8
-                        + x.sortingIndex.CompareTo(y.sortingIndex) * 4
+                        + x.sortingIndex.CompareTo(y.sortingIndex) * -4 //less index -> later in render
                         + x.position.y.CompareTo(y.position.y) * 2
                         + x.id.CompareTo(y.id);
                 }
@@ -282,8 +282,10 @@ namespace NSprites
                     var entity = entityArray[i];
                     var sortingGroup = sortingGroupArray[i];
                     var position = worldPosition2DArray[i].value;
+
                     float groupPosition;
                     int groupSortingIndex;
+                    //means it's root entity
                     if(sortingGroup.groupID == entity)
                     {
                         groupPosition = position.y;
@@ -294,6 +296,7 @@ namespace NSprites
                         groupPosition = worldPosition2D_CDFE[sortingGroup.groupID].value.y;
                         groupSortingIndex = sortingGroup_CDFE[sortingGroup.groupID].index;
                     }
+
                     spriteData[indexOfFirstEntityInQuery + i] = new SpriteData
                     {
                         entityInQueryIndex = indexOfFirstEntityInQuery + i,
@@ -319,15 +322,11 @@ namespace NSprites
             //  * float4
             //  * float4x4
         {
-            [ReadOnly]
-            public DynamicComponentTypeHandle componentTypeHandle; //this should be filled every frame with GetDynamicComponentTypeHandle
-            [ReadOnly]
+            //this should be filled every frame with GetDynamicComponentTypeHandle
+            [ReadOnly] public DynamicComponentTypeHandle componentTypeHandle;
             public int typeSize;
-            [ReadOnly]
-            public NativeSlice<int> orderMap;
-            [WriteOnly]
-            [NativeDisableParallelForRestriction]
-            public NativeArray<TProperty> outputArray;
+            [ReadOnly] public NativeSlice<int> orderMap;
+            [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
@@ -344,13 +343,10 @@ namespace NSprites
             //  * float
             //  * float4
         {
-            [ReadOnly]
-            public DynamicComponentTypeHandle componentTypeHandle; //this should be filled every frame with GetDynamicComponentTypeHandle
-            [ReadOnly]
+            //this should be filled every frame with GetDynamicComponentTypeHandle
+            [ReadOnly] public DynamicComponentTypeHandle componentTypeHandle;
             public int typeSize;
-            [WriteOnly]
-            [NativeDisableParallelForRestriction]
-            public NativeArray<TProperty> outputArray;
+            [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
@@ -368,13 +364,9 @@ namespace NSprites
         [BurstCompile]
         internal struct FillMatricesArrayJob : IJobParallelFor
         {
-            [ReadOnly]
-            public NativeArray<SpriteData> spriteDataArray;
-            [ReadOnly]
-            public NativeList<RenderArchetypeForSorting> archetypeLayoutData;
-            [WriteOnly]
-            [NativeDisableParallelForRestriction]
-            public NativeArray<float4x4> matricesArray;
+            [ReadOnly] public NativeArray<SpriteData> spriteDataArray;
+            [ReadOnly] public NativeList<RenderArchetypeForSorting> archetypeLayoutData;
+            [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<float4x4> matricesArray;
 
             private const float PER_INDEX_OFFSET = .0001f; //below this value camera doesn't recognize difference
 
@@ -394,10 +386,8 @@ namespace NSprites
         internal struct CopyArray<T> : IJob
             where T : unmanaged
         {
-            [WriteOnly]
-            public NativeArray<T> dstArray;
-            [ReadOnly]
-            public NativeSlice<T> sourceArray;
+            [WriteOnly] public NativeArray<T> dstArray;
+            [ReadOnly] public NativeSlice<T> sourceArray;
 
             public void Execute()
             {
