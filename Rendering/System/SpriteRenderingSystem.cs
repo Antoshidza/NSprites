@@ -189,12 +189,6 @@ namespace NSprites
                 return (int)math.ceil(count / (float)_capacityStep);
             }
         }
-        [Serializable]
-        public struct TextureProperty
-        {
-            public string name;
-            public Texture2D texture;
-        }
 
         public enum PropertyFormat
         {
