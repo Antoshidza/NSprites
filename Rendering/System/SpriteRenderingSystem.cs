@@ -189,13 +189,18 @@ namespace NSprites
                 return (int)math.ceil(count / (float)_capacityStep);
             }
         }
+        [Serializable]
+        public struct TextureProperty
+        {
+            public string name;
+            public Texture2D texture;
+        }
 
         public enum PropertyFormat
         {
             Float,
             Float4,
-            Int,
-            Bool
+            Int
         }
         internal struct PropertyData
         {
@@ -554,7 +559,6 @@ namespace NSprites
                     PropertyFormat.Float => GetInstancedProperty<float>(sizeof(float)),
                     PropertyFormat.Float4 => GetInstancedProperty<float4>(sizeof(float) * 4),
                     PropertyFormat.Int => GetInstancedProperty<int>(sizeof(int)),
-                    PropertyFormat.Bool => GetInstancedProperty<bool>(sizeof(bool)),
                     _ => throw new Exception($"There is no handle for {propertyData.format} in {GetType().Name}")
                 };
 
