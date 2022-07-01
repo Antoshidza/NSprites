@@ -28,10 +28,10 @@ namespace NSprites
                 /// <summary>
                 /// Calls BeginWrite on it's compute buffer with sortingDatas.Length count. Before use MPB in rendering we should call EndWrite() before rendering.
                 /// </summary>
-                public JobHandle GatherData(EntityQuery spriteQuery, int length, JobHandle inputDeps, SystemBase system);
-                public JobHandle GatherOrderedData(EntityQuery spriteQuery, NativeSlice<int> orderMap, JobHandle inputDeps, SystemBase system);
-                public void EndWrite(int count);
-                public void Resize(int size);
+                public JobHandle GatherData(in EntityQuery spriteQuery, in int length, in JobHandle inputDeps, SystemBase system);
+                public JobHandle GatherOrderedData(in EntityQuery spriteQuery, in NativeSlice<int> orderMap, in JobHandle inputDeps, SystemBase system);
+                public void EndWrite(in int count);
+                public void Resize(in int size);
                 public void PassToMaterialPropertyBlock(MaterialPropertyBlock materialPropertyBlock);
             }
             internal class InstancedProperty<T> : IInstancedProperty
@@ -41,13 +41,13 @@ namespace NSprites
                 public ComponentType componentType;
                 public ComputeBuffer computeBuffer;
 
-                internal InstancedProperty(int propertyID, int count, int stride, ComponentType componentType)
+                internal InstancedProperty(in int propertyID, in int count, in int stride, in ComponentType componentType)
                 {
                     this.propertyID = propertyID;
                     this.componentType = componentType;
                     computeBuffer = new ComputeBuffer(count, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
                 }
-                public JobHandle GatherData(EntityQuery spriteQuery, int length, JobHandle inputDeps, SystemBase system)
+                public JobHandle GatherData(in EntityQuery spriteQuery, in int length, in JobHandle inputDeps, SystemBase system)
                 {
                     return new GatherPropertyJob<T>
                     {
@@ -56,7 +56,7 @@ namespace NSprites
                         outputArray = computeBuffer.BeginWrite<T>(0, length)
                     }.ScheduleParallel(spriteQuery, inputDeps);   
                 }
-                public JobHandle GatherOrderedData(EntityQuery spriteQuery, NativeSlice<int> orderMap, JobHandle inputDeps, SystemBase system)
+                public JobHandle GatherOrderedData(in EntityQuery spriteQuery, in NativeSlice<int> orderMap, in JobHandle inputDeps, SystemBase system)
                 {
                     return new GatherPropertyByOrderMapJob<T>
                     {
@@ -66,11 +66,11 @@ namespace NSprites
                         orderMap = orderMap
                     }.ScheduleParallel(spriteQuery, inputDeps);
                 }
-                public void EndWrite(int count)
+                public void EndWrite(in int count)
                 {
                     computeBuffer.EndWrite<T>(count);
                 }
-                public void Resize(int size)
+                public void Resize(in int size)
                 {
                     var stride = computeBuffer.stride;
                     computeBuffer.Release();
@@ -186,7 +186,7 @@ namespace NSprites
             }
             private int GetRequiredSize(int count)
             {
-                return (int)math.ceil(count / (float)_capacityStep);
+                return ((count - 1) / _capacityStep + 1) * _capacityStep;
             }
         }
 
@@ -319,8 +319,8 @@ namespace NSprites
             //this should be filled every frame with GetDynamicComponentTypeHandle
             [ReadOnly] public DynamicComponentTypeHandle componentTypeHandle;
             public int typeSize;
-            [ReadOnly] public NativeSlice<int> orderMap;
-            [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
+            [NoAlias][ReadOnly] public NativeSlice<int> orderMap;
+            [NoAlias][WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
@@ -380,8 +380,8 @@ namespace NSprites
         internal struct CopyArray<T> : IJob
             where T : unmanaged
         {
-            [WriteOnly] public NativeArray<T> dstArray;
-            [ReadOnly] public NativeSlice<T> sourceArray;
+            [NoAlias][WriteOnly] public NativeArray<T> dstArray;
+            [NoAlias][ReadOnly] public NativeSlice<T> sourceArray;
 
             public void Execute()
             {
@@ -466,7 +466,12 @@ namespace NSprites
             }
             #endregion
 
-            var sortingHandle = Job.WithCode(() => { spriteDataArray.Sort(new SpriteData.GeneralComparer()); }).WithBurst().Schedule(gatherSortingDataHandle);
+            //the most expensive part
+            var sortingHandle = Job.WithCode(() => { spriteDataArray.Sort(new SpriteData.GeneralComparer()); })
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                .WithName("Sorting")
+#endif
+                .WithBurst().Schedule(gatherSortingDataHandle);
 
             var matrices = new NativeArray<float4x4>(spriteDataArray.Length, Allocator.TempJob);
             var fillMatricesHandle = new FillMatricesArrayJob
@@ -531,7 +536,7 @@ namespace NSprites
         /// <param name="instancedPropertyNames">names of StructuredBuffer properties in shader</param>
         /// <param name="matricesPropertyID">propety ID of transform matrices structured buffer in shader</param>
         /// <param name="capacityStep">compute buffers capacity increase step when the current limit on the number of entities is exceeded</param>
-        public int RegistrateRender(in int id, Material material, string[] instancedPropertyNames, int matricesPropertyID, MaterialPropertyBlock materialPropertyBlock = null, in int capacityStep = 1)
+        public int RegistrateRender(in int id, Material material, string[] instancedPropertyNames, in int matricesPropertyID, MaterialPropertyBlock materialPropertyBlock = null, in int capacityStep = 1)
         {
             //generates instanced properties
             var instancedProperties = new RenderArchetype.IInstancedProperty[instancedPropertyNames.Length];
@@ -543,16 +548,11 @@ namespace NSprites
                 var propertyID = Shader.PropertyToID(instancedPropertyNames[i]);
                 var propertyData = _instancedPropertiesFormats[propertyID];
 
-                RenderArchetype.IInstancedProperty GetInstancedProperty<T>(int stride) where T : struct
-                {
-                    return new RenderArchetype.InstancedProperty<T>(propertyID, 1, stride, propertyData.componentType);
-                }
-
                 instancedProperties[i] = propertyData.format switch
                 {
-                    PropertyFormat.Float => GetInstancedProperty<float>(sizeof(float)),
-                    PropertyFormat.Float4 => GetInstancedProperty<float4>(sizeof(float) * 4),
-                    PropertyFormat.Int => GetInstancedProperty<int>(sizeof(int)),
+                    PropertyFormat.Float => new RenderArchetype.InstancedProperty<float>(propertyID, capacityStep, sizeof(float), propertyData.componentType),
+                    PropertyFormat.Float4 => new RenderArchetype.InstancedProperty<float4>(propertyID, capacityStep, 4 * sizeof(float), propertyData.componentType),
+                    PropertyFormat.Int => new RenderArchetype.InstancedProperty<int>(propertyID, capacityStep, sizeof(int), propertyData.componentType),
                     _ => throw new Exception($"There is no handle for {propertyData.format} in {GetType().Name}")
                 };
 
@@ -573,7 +573,7 @@ namespace NSprites
         /// By default system will automatically gather and bind all component types which have [<see cref="InstancedProperty"/>] attribute to specified property.
         /// But you can use this method to manually pass bind data.
         /// </summary>
-        public void BindComponentToShaderProperty(int propertyID, Type componentType, PropertyFormat format)
+        public void BindComponentToShaderProperty(in int propertyID, Type componentType, in PropertyFormat format)
         {
             var propertyData = new PropertyData
             {
@@ -587,7 +587,7 @@ namespace NSprites
         /// By default system will automatically gather and bind all component types which have [<see cref="InstancedProperty"/>] attribute to specified property.
         /// But you can use this method to manually pass bind data.
         /// </summary>
-        public void BindComponentToShaderProperty(string propertyName, Type componentType, PropertyFormat format)
+        public void BindComponentToShaderProperty(in string propertyName, Type componentType, in PropertyFormat format)
         {
             BindComponentToShaderProperty(Shader.PropertyToID(propertyName), componentType, format);
         }
