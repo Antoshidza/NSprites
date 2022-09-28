@@ -16,7 +16,7 @@ using UnityEngine.Rendering;
 namespace NSprites
 {
     [UpdateInGroup(typeof(PresentationSystemGroup))]
-    public class SpriteRenderingSystem : SystemBase
+    public partial class SpriteRenderingSystem : SystemBase
     {
         //assuming that there is no batching for different materials/textures/other not-instanced properties we can define some kind of render archetypes
         //it is combination of material index + uniqueness of properties + all per-material properties values (mostly textures, because they are reason why we do this)

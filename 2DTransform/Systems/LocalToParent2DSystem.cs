@@ -8,7 +8,7 @@ using Unity.Burst;
 namespace NSprites
 {
     [UpdateInGroup(typeof(TransformSystemGroup))]
-    public class LocalToParent2DSystem : SystemBase
+    public partial class LocalToParent2DSystem : SystemBase
     {
         [BurstCompile]
         private struct UpdateHierarchy : IJobEntityBatch
