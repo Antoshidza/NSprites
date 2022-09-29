@@ -86,7 +86,7 @@ namespace NSprites
                 child_BTH = GetBufferTypeHandle<Child2D>(true),
                 worldPosition_CTH = GetComponentTypeHandle<WorldPosition2D>(true),
                 lastSystemVersion = LastSystemVersion
-            }.ScheduleParallel(_rootQuery, 32, Dependency);
+            }.ScheduleParallel(_rootQuery, Dependency);
         }
     }
 }
