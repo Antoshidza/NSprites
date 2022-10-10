@@ -293,27 +293,6 @@ namespace NSprites
             }
         }
         [BurstCompile]
-        internal struct GatherPropertyByOrderMapJob<TProperty> : IJobChunk
-            where TProperty : struct
-            //TPropety supposed to be:
-            //  * float
-            //  * float4
-            //  * float4x4
-        {
-            //this should be filled every frame with GetDynamicComponentTypeHandle
-            [ReadOnly] public DynamicComponentTypeHandle componentTypeHandle;
-            public int typeSize;
-            [NoAlias][ReadOnly] public NativeSlice<int> orderMap;
-            [NoAlias][WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
-
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
-            {
-                var dataArray = chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(componentTypeHandle, typeSize);
-                for(int i = 0; i < dataArray.Length; i++)
-                    outputArray[orderMap[firstEntityIndex + i]] = dataArray[i];
-            }
-        }
-        [BurstCompile]
         internal struct GatherPropertyJob<TProperty> : IJobChunk
             where TProperty : struct
             //TPropety supposed to be:
