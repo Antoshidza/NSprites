@@ -8,17 +8,17 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<int>))]
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float>))]
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float4>))]
 namespace NSprites
 {
-    [WorldSystemFilter(WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.Default)]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class SpriteRenderingSystem : SystemBase
     {
+        #region data
         //assuming that there is no batching for different materials/textures/other not-instanced properties we can define some kind of render archetypes
         //it is combination of material index + uniqueness of properties + all per-material properties values (mostly textures, because they are reason why we do this)
         //if sprites uses different IRenderArchetype then they should be rendered in different calls
@@ -74,14 +74,14 @@ namespace NSprites
             }
 
             public readonly int id;
-            public readonly Material material;
-            public readonly MaterialPropertyBlock materialPropertyBlock;
-            public EntityQuery query;
 
-            public ComputeBuffer matricesBuffer;
             private const int LTW_BUFFER_STRIDE = 16 * sizeof(float);
-            private int _matricesPropertyID;
 
+            private readonly Material _material;
+            private readonly MaterialPropertyBlock _materialPropertyBlock;
+            private EntityQuery _query;
+            private int _matricesPropertyID;
+            private ComputeBuffer _matricesBuffer;
             private int _size;
             private int _capacityStep; 
             private IInstancedProperty[] _instancedProperties;
@@ -89,83 +89,61 @@ namespace NSprites
 
             public RenderArchetype(Material material, IInstancedProperty[] instancedProperties, EntityQuery query, int id, int matricesPropertyID, MaterialPropertyBlock overrideMPB = null, int capacityStep = 1)
             {
-                this.material = material;
-                this.query = query;
                 this.id = id;
-
+                _query = query;
+                _material = material;
                 _matricesPropertyID = matricesPropertyID;
                 _size = capacityStep;
                 _capacityStep = capacityStep;
-
-                //for each instanced property in shader copy it from material to MPB. this data will be immutable
-                materialPropertyBlock = overrideMPB == null ? new MaterialPropertyBlock() : overrideMPB;
-                var propertyCount = material.shader.GetPropertyCount();
-                for(int i = 0; i < propertyCount; i++)
-                {
-                    var propertyType = material.shader.GetPropertyType(i);
-                    var propertyID = material.shader.GetPropertyNameId(i);
-                    switch(propertyType)
-                    {
-                        case ShaderPropertyType.Color:
-                            materialPropertyBlock.SetColor(propertyID, material.GetColor(propertyID));
-                            break;
-                        case ShaderPropertyType.Vector:
-                            materialPropertyBlock.SetVector(propertyID, material.GetVector(propertyID));
-                            break;
-                        case ShaderPropertyType.Float:
-                            materialPropertyBlock.SetFloat(propertyID, material.GetFloat(propertyID));
-                            break;
-                        case ShaderPropertyType.Texture:
-                            materialPropertyBlock.SetTexture(propertyID, material.GetTexture(propertyID));
-                            break;
-                        case ShaderPropertyType.Range:
-                        default:
-                            throw new Exception($"There is no handle for {propertyType} in {GetType().Name}");
-                    }
-                }
-
+                _materialPropertyBlock = overrideMPB ?? new MaterialPropertyBlock();
                 _instancedProperties = instancedProperties;
+
                 for(int i = 0; i < instancedProperties.Length; i++)
-                    instancedProperties[i].PassToMaterialPropertyBlock(materialPropertyBlock);
+                    instancedProperties[i].PassToMaterialPropertyBlock(_materialPropertyBlock);
 
                 _gatherDataHandles = new NativeArray<JobHandle>(_instancedProperties.Length, Allocator.Persistent);
 
-                matricesBuffer = new ComputeBuffer(_size, LTW_BUFFER_STRIDE, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
-                materialPropertyBlock.SetBuffer(_matricesPropertyID, matricesBuffer);
+                _matricesBuffer = new ComputeBuffer(_size, LTW_BUFFER_STRIDE, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
+                _materialPropertyBlock.SetBuffer(_matricesPropertyID, _matricesBuffer);
             }
             public void Dispose()
             {
-                matricesBuffer.Dispose();
+                _matricesBuffer.Dispose();
                 _gatherDataHandles.Dispose();
                 foreach (var instancedProperty in _instancedProperties)
                     instancedProperty.Dispose();
             }
+            public EntityQuery GetQueryFilteredByID()
+            {
+                _query.SetSharedComponentFilter(new SpriteRenderID() { id = id });
+                return _query;
+            }
             public JobHandle GatherPropertyData(in int length, SystemBase system, in JobHandle inputDeps = default)
             {
-                query.SetSharedComponentFilter(new SpriteRenderID() { id = id });
+                _query.SetSharedComponentFilter(new SpriteRenderID() { id = id });
                 if (_size < length)
                 {
                     _size = GetRequiredSize(length);
-                    matricesBuffer.Release();
-                    matricesBuffer = new ComputeBuffer(_size, LTW_BUFFER_STRIDE, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
-                    materialPropertyBlock.SetBuffer(_matricesPropertyID, matricesBuffer);
+                    _matricesBuffer.Release();
+                    _matricesBuffer = new ComputeBuffer(_size, LTW_BUFFER_STRIDE, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
+                    _materialPropertyBlock.SetBuffer(_matricesPropertyID, _matricesBuffer);
                     for(int i = 0; i < _instancedProperties.Length; i++)
                     {
                         var property = _instancedProperties[i];
                         property.Resize(_size);
-                        property.PassToMaterialPropertyBlock(materialPropertyBlock);
-                        _gatherDataHandles[i] = property.GatherData(query, length, inputDeps, system);
+                        property.PassToMaterialPropertyBlock(_materialPropertyBlock);
+                        _gatherDataHandles[i] = property.GatherData(_query, length, inputDeps, system);
                     }
                 }
                 else
                     for(int i = 0; i < _instancedProperties.Length; i++)
-                        _gatherDataHandles[i] = _instancedProperties[i].GatherData(query, length, inputDeps, system);
+                        _gatherDataHandles[i] = _instancedProperties[i].GatherData(_query, length, inputDeps, system);
 
                 return JobHandle.CombineDependencies(_gatherDataHandles);
             }
             public JobHandle FillMatricesData(NativeSlice<float4x4> matrices, JobHandle inputDeps)
             {
-                var matricesArray = matricesBuffer.BeginWrite<float4x4>(0, matrices.Length);
+                var matricesArray = _matricesBuffer.BeginWrite<float4x4>(0, matrices.Length);
                 return new CopyArray<float4x4>
                 {
                     dstArray = matricesArray,
@@ -176,9 +154,23 @@ namespace NSprites
             {
                 for(int i = 0; i < _instancedProperties.Length; i++)
                     _instancedProperties[i].EndWrite(count);
-                matricesBuffer.EndWrite<float4x4>(count);
+                _matricesBuffer.EndWrite<float4x4>(count);
             }
-            private int GetRequiredSize(int count) => ((count - 1) / _capacityStep + 1) * _capacityStep;
+            private int GetRequiredSize(int count) 
+                => ((count - 1) / _capacityStep + 1) * _capacityStep;
+            public void Draw(Mesh mesh, in Bounds bounds, in int count)
+            {
+#if UNITY_EDITOR
+                //ensure we pass not-null values for SubScene strange behaviour
+                if (mesh == null)
+                    Debug.LogWarning("Can't render sprite because mesh is null");
+                if(_material == null)
+                    Debug.LogWarning("Can't render sprite because material is null");
+                if (mesh == null || _material == null)
+                    return;
+#endif
+                Graphics.DrawMeshInstancedProcedural(mesh, 0, _material, bounds, count, _materialPropertyBlock);
+            }
         }
 
         public enum PropertyFormat
@@ -240,6 +232,7 @@ namespace NSprites
             /// <summary>sprite count</summary>
             public int count;
         }
+        #endregion
 
         #region jobs
         [BurstCompile]
@@ -391,15 +384,14 @@ namespace NSprites
         }
         #endregion
 
-        private Mesh _quad;
-        private Dictionary<int, PropertyData> _instancedPropertiesFormats = new();
+        private readonly Mesh _quad = Utils.ConstructQuad();
         private NativeArray<ComponentType> _defaultComponentTypes;
-        private List<RenderArchetype> _renderArchetypes = new();
+        private readonly Dictionary<int, PropertyData> _instancedPropertiesFormats = new();
+        private readonly List<RenderArchetype> _renderArchetypes = new();
 
         protected override void OnCreate()
         {
             base.OnCreate();
-            _quad = Utils.ConstructQuad();
             GatherPropertiesTypes();
             GatherDefaultComponentTypes();
         }
@@ -419,23 +411,21 @@ namespace NSprites
             for(int i = 0; i < _renderArchetypes.Count; i++)
             {
                 var renderArchetype = _renderArchetypes[i];
-                var query = renderArchetype.query;
-                query.SetSharedComponentFilter(new SpriteRenderID() { id = renderArchetype.id });
-                _renderArchetypes[i].query = query;
-                var spriteCount = query.CalculateEntityCount();
+                //for some reason we need to update this SetSharedComponentFilter every time we get 
+                var spriteCount = renderArchetype.GetQueryFilteredByID().CalculateEntityCount();
                 if(spriteCount > 0)
                 {
                     includedArchetypes.Add(new RenderArchetypeForSorting() { id = renderArchetype.id, archetypeIndex = i, stride = totalSpriteCount, count = spriteCount });
                     totalSpriteCount += spriteCount;
                 }
             }
-            #endregion
 
             if(includedArchetypes.Length == 0)
             {
                 includedArchetypes.Dispose();
                 return;
             }
+            #endregion
 
             #region gather sprite data
             var gatherSortingDataHandle = new JobHandle();
@@ -450,8 +440,6 @@ namespace NSprites
             for(int i = 0; i < includedArchetypes.Length; i++)
             {
                 var renderArchetypeData = includedArchetypes[i];
-                var query = _renderArchetypes[renderArchetypeData.archetypeIndex].query;
-                query.SetSharedComponentFilter(new SpriteRenderID() { id = renderArchetypeData.id });
                 var handle = new GatherSortingDataJob()
                 {
                     //CTH - ComponentTypeHandle
@@ -465,18 +453,21 @@ namespace NSprites
                     sortingGroup_CTH = sortingGroup_CTH,
                     sortingGroup_CDFE = sortingGroupCDFE,
                     spriteData = new NativeSlice<SpriteData>(spriteDataArray, renderArchetypeData.stride, renderArchetypeData.count)
-                }.ScheduleParallel(query, Dependency);
+                }.ScheduleParallel(_renderArchetypes[renderArchetypeData.archetypeIndex].GetQueryFilteredByID(), Dependency);
                 gatherSortingDataHandle = JobHandle.CombineDependencies(gatherSortingDataHandle, handle);
             }
             #endregion
 
             //the most expensive part
+            #region sort sprites
             var sortingHandle = new SortArrayJob<SpriteData, SpriteData.GeneralComparer>
             {
                 array = spriteDataArray,
                 comparer = new SpriteData.GeneralComparer()
             }.Schedule(gatherSortingDataHandle);
+            #endregion
 
+            #region rearrange data
             var matrices = new NativeArray<float4x4>(spriteDataArray.Length, Allocator.TempJob);
             var fillMatricesHandle = new FillMatricesArrayJob
             {
@@ -498,25 +489,16 @@ namespace NSprites
                     renderArchetype.FillMatricesData(new NativeSlice<float4x4>(matrices, includedArchetype.stride, includedArchetype.count), fillMatricesHandle)
                 );
             }
+            #endregion
 
             #region render archetypes
-            for(int i = 0; i < includedArchetypes.Length; i++)
+            for (int i = 0; i < includedArchetypes.Length; i++)
             {
                 var includedArchetype = includedArchetypes[i];
                 var renderArchetype = _renderArchetypes[includedArchetype.archetypeIndex];
                 gatherPropertiesHandles[i].Complete();
                 renderArchetype.EndWriteComputeBuffers(includedArchetype.count);
-
-                Graphics.DrawMeshInstancedProcedural
-                (
-                    _quad,
-                    0,
-                    renderArchetype.material,
-                    new Bounds(new Vector3(0f, 0f, i),
-                    Vector3.one * 1000f),
-                    includedArchetype.count,
-                    renderArchetype.materialPropertyBlock
-                );
+                renderArchetype.Draw(_quad, new Bounds(new Vector3(0f, 0f, i), Vector3.one * 1000f), includedArchetype.count);
             }
             #endregion
 
@@ -524,6 +506,7 @@ namespace NSprites
             matrices.Dispose();
         }
 
+        #region support methods
         public bool IsRegistred(in int id)
         {
             for(int i = 0; i < _renderArchetypes.Count; i++)
@@ -630,5 +613,6 @@ namespace NSprites
             _defaultComponentTypes[--index] = ComponentType.ReadOnly<SpriteRenderID>();
             disableRenderingComponentTypes.Dispose();
         }
+        #endregion
     }
 }
