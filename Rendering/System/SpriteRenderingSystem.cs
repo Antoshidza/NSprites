@@ -280,14 +280,16 @@ namespace NSprites
                         entityInQueryIndex = indexOfFirstEntityInQuery + i,
                         archetypeIncludedIndex = archetypeIncludedIndex,
 
-                        id = entity.Index,
-                        groupID = sortingGroup.groupID.Index,
-                        groupSortingIndex = groupSortingIndex,
-                        groupPosition = groupPosition,
-                        sortingIndex = sortingGroup.index,
                         position = position,
                         scale = scale2DArray[i].value,
-                        pivot = pivotArray[i].value
+                        pivot = pivotArray[i].value,
+
+                        id = entity.Index,
+                        sortingIndex = sortingGroup.index,
+
+                        groupID = sortingGroup.groupID.Index,
+                        groupPosition = groupPosition,
+                        groupSortingIndex = groupSortingIndex,
                     };
                 }
             }
@@ -325,15 +327,13 @@ namespace NSprites
             [ReadOnly] public NativeList<RenderArchetypeForSorting> archetypeLayoutData;
             [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<float4x4> matricesArray;
 
-            private const float PER_INDEX_OFFSET = .0001f; //below this value camera doesn't recognize difference
-
             public void Execute(int index)
             {
                 var spriteData = spriteDataArray[index];
                 var renderPosition = spriteData.position - spriteData.scale * spriteData.pivot;
                 matricesArray[archetypeLayoutData[spriteData.archetypeIncludedIndex].stride + spriteData.entityInQueryIndex] = float4x4.TRS
                 (
-                    new float3(renderPosition.x, renderPosition.y, PER_INDEX_OFFSET * index),
+                    new float3(renderPosition.x, renderPosition.y, 0),
                     quaternion.identity,
                     new float3(spriteData.scale.x, spriteData.scale.y, 1f)
                 );
