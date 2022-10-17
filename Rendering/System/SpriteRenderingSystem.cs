@@ -79,12 +79,12 @@ namespace NSprites
 
             private readonly Material _material;
             private readonly MaterialPropertyBlock _materialPropertyBlock;
-            private EntityQuery _query;
-            private int _matricesPropertyID;
+            private readonly EntityQuery _query;
+            private readonly int _matricesPropertyID;
             private ComputeBuffer _matricesBuffer;
             private int _size;
-            private int _capacityStep; 
-            private IInstancedProperty[] _instancedProperties;
+            private readonly int _capacityStep; 
+            private readonly IInstancedProperty[] _instancedProperties;
             private NativeArray<JobHandle> _gatherDataHandles;
 
             public RenderArchetype(Material material, IInstancedProperty[] instancedProperties, EntityQuery query, int id, int matricesPropertyID, MaterialPropertyBlock overrideMPB = null, int capacityStep = 1)
@@ -173,17 +173,10 @@ namespace NSprites
             }
         }
 
-        public enum PropertyFormat
-        {
-            Float,
-            Float4,
-            Int
-        }
-        internal struct PropertyData
+        internal struct InstancedPropertyData
         {
             public ComponentType componentType;
             public PropertyFormat format;
-            public int stride;
         }
 
         //TODO: don't sort SortingData, instead sort it's indexes because struct is much bigger then single int32
@@ -365,7 +358,7 @@ namespace NSprites
 
         private readonly Mesh _quad = Utils.ConstructQuad();
         private NativeArray<ComponentType> _defaultComponentTypes;
-        private readonly Dictionary<int, PropertyData> _instancedPropertiesFormats = new();
+        private readonly Dictionary<int, InstancedPropertyData> _instancedPropertiesFormats = new();
         private readonly List<RenderArchetype> _renderArchetypes = new();
 
         protected override void OnCreate()
@@ -541,7 +534,7 @@ namespace NSprites
         /// </summary>
         public void BindComponentToShaderProperty(in int propertyID, Type componentType, in PropertyFormat format)
         {
-            var propertyData = new PropertyData
+            var propertyData = new InstancedPropertyData
             {
                 componentType = new ComponentType(componentType, ComponentType.AccessMode.ReadOnly),
                 format = format
@@ -559,17 +552,8 @@ namespace NSprites
         }
         private void GatherPropertiesTypes()
         {
-            var instancedPropertyAttributeType = typeof(InstancedProperty);
-            foreach(var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                foreach(var type in assembly.GetTypes())
-                {
-                    var instancedPropertiesAttributes = type.GetCustomAttributes(instancedPropertyAttributeType, true);
-                    if(instancedPropertiesAttributes.Length > 0)
-                        foreach(InstancedProperty instancedPropertyAttribute in instancedPropertiesAttributes)
-                            BindComponentToShaderProperty(instancedPropertyAttribute.name, type, instancedPropertyAttribute.format);
-                }
-            }
+            foreach (var property in InstancedProperty.GetProperties())
+                BindComponentToShaderProperty(property.name, property.componentType, property.format);
         }
 
         private NativeArray<ComponentType> GetDisableRenderingComponentTypes()
