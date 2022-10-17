@@ -1,4 +1,7 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using System;
+using UnityEngine;
+using System.Reflection;
 
 namespace NSprites
 {
@@ -48,6 +51,16 @@ namespace NSprites
             };
 
             return qaud;
+        }
+
+        public static IEnumerable<TAttribute> GetAssemblyAttributes<TAttribute>()
+            where TAttribute : Attribute
+        {
+            var result = new List<TAttribute>();
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in assemblies)
+                result.AddRange(assembly.GetCustomAttributes<TAttribute>());
+            return result;
         }
     }
 }

@@ -282,7 +282,7 @@ namespace NSprites
 
         /// <summary>
         /// Registrate unique render, which is combination of Material + MaterialPropertyBlock + set of StrcutredBuffer property names in shader.
-        /// Every entity with <see cref="SpriteRenderID"/> component with ID value equal to passed ID, with <see cref="WorldPosition2D"/> and with all components which belongs to instancedPropertyNames (through [<see cref="InstancedProperty"/>] attribute) will be rendered with registered render.
+        /// Every entity with <see cref="SpriteRenderID"/> component with ID value equal to passed ID, with <see cref="WorldPosition2D"/> and with all components which belongs to instancedPropertyNames (through [<see cref="InstancedPropertyComponent"/>] attribute) will be rendered with registered render.
         /// Entity without at least one instanced property component from instancedPropertyNames won't be rendered at all without any errors.
         /// </summary>
         /// <param name="instancedPropertyNames">names of StructuredBuffer properties in shader</param>
@@ -326,7 +326,7 @@ namespace NSprites
 
         /// <summary>
         /// Binds IComponentData to shader property. Binded components will be gathered from entities during render process to be passed to shader.
-        /// By default system will automatically gather and bind all component types which have [<see cref="InstancedProperty"/>] attribute to specified property.
+        /// By default system will automatically gather and bind all component types which have [<see cref="InstancedPropertyComponent"/>] attribute to specified property.
         /// But you can use this method to manually pass bind data.
         /// </summary>
         public void BindComponentToShaderProperty(in int propertyID, Type componentType, in PropertyFormat format)
@@ -343,7 +343,7 @@ namespace NSprites
         }
         /// <summary>
         /// Binds IComponentData to shader property. Binded components will be gathered from entities during render process to be passed to shader.
-        /// By default system will automatically gather and bind all component types which have [<see cref="InstancedProperty"/>] attribute to specified property.
+        /// By default system will automatically gather and bind all component types which have [<see cref="InstancedPropertyComponent"/>] attribute to specified property.
         /// But you can use this method to manually pass bind data.
         /// </summary>
         public void BindComponentToShaderProperty(in string propertyName, Type componentType, in PropertyFormat format)
@@ -352,20 +352,13 @@ namespace NSprites
         }
         private void GatherPropertiesTypes()
         {
-            foreach (var property in InstancedProperty.GetProperties())
+            foreach (var property in InstancedPropertyComponent.GetProperties())
                 BindComponentToShaderProperty(property.name, property.componentType, property.format);
         }
 
-        private NativeArray<ComponentType> GetDisableRenderingComponentTypes()
-        {
-            var attributeType = typeof(DisableSpriteRenderingComponent);
-            var disableRenderingTypes = AppDomain.CurrentDomain.GetAssemblies().SelectMany((assembly) => assembly.GetTypes().Where((Type t) => t.GetCustomAttributes(attributeType, true).Length > 0).Select((type) => new ComponentType(type, ComponentType.AccessMode.Exclude)));
-            return new NativeArray<ComponentType>(disableRenderingTypes.ToArray(), Allocator.Persistent);
-        }
-        
         private void GatherDefaultComponentTypes()
         {
-            var disableRenderingComponentTypes = GetDisableRenderingComponentTypes();
+            var disableRenderingComponentTypes = new NativeArray<ComponentType>(DisableRenderingComponent.GetTypes().ToArray(), Allocator.Persistent);
             _defaultComponentTypes = new NativeArray<ComponentType>(disableRenderingComponentTypes.Length + 2, Allocator.Persistent);
             NativeArray<ComponentType>.Copy(disableRenderingComponentTypes, 0, _defaultComponentTypes, 0, disableRenderingComponentTypes.Length);
             var index = _defaultComponentTypes.Length;
