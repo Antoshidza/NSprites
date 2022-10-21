@@ -43,7 +43,7 @@ namespace NSprites
                 public void PassToMaterialPropertyBlock(MaterialPropertyBlock materialPropertyBlock);
             }
             internal class InstancedProperty<T> : IInstancedProperty
-                where T : struct
+                where T : unmanaged
             {
                 public int propertyID;
                 public ComponentType componentType;
@@ -81,22 +81,21 @@ namespace NSprites
                 }
             }
 
-            public readonly int id;
-
+            private readonly int _id;
             private readonly Material _material;
             private readonly MaterialPropertyBlock _materialPropertyBlock;
             private readonly EntityQuery _query;
-            private int _size;
+            private int _count;
             private readonly int _capacityStep; 
             private readonly IInstancedProperty[] _instancedProperties;
             private NativeArray<JobHandle> _gatherDataHandles;
 
-            public RenderArchetype(Material material, IInstancedProperty[] instancedProperties, EntityQuery query, int id, /*int matricesPropertyID,*/ MaterialPropertyBlock overrideMPB = null, int capacityStep = 1)
+            public RenderArchetype(Material material, IInstancedProperty[] instancedProperties, in EntityQuery query, in int id, MaterialPropertyBlock overrideMPB = null, in int capacityStep = 512)
             {
-                this.id = id;
+                _id = id;
                 _query = query;
                 _material = material;
-                _size = capacityStep;
+                _count = capacityStep;
                 _capacityStep = capacityStep;
                 _materialPropertyBlock = overrideMPB ?? new MaterialPropertyBlock();
                 _instancedProperties = instancedProperties;
@@ -114,19 +113,19 @@ namespace NSprites
             }
             public EntityQuery GetQueryFilteredByID()
             {
-                _query.SetSharedComponentFilter(new SpriteRenderID() { id = id });
+                _query.SetSharedComponentFilter(new SpriteRenderID() { id = _id });
                 return _query;
             }
             public JobHandle GatherPropertyData(in int length, SystemBase system, in JobHandle inputDeps = default)
             {
-                _query.SetSharedComponentFilter(new SpriteRenderID() { id = id });
-                if (_size < length)
+                _query.SetSharedComponentFilter(new SpriteRenderID() { id = _id });
+                if (_count < length)
                 {
-                    _size = GetRequiredSize(length);
+                    _count = GetRequiredSize(length);
                     for(int i = 0; i < _instancedProperties.Length; i++)
                     {
                         var property = _instancedProperties[i];
-                        property.Resize(_size);
+                        property.Resize(_count);
                         property.PassToMaterialPropertyBlock(_materialPropertyBlock);
                         _gatherDataHandles[i] = property.GatherData(_query, length, inputDeps, system);
                     }
@@ -164,8 +163,7 @@ namespace NSprites
             public ComponentType componentType;
             public PropertyFormat format;
         }
-
-        internal struct RenderArchetypeForSorting
+        internal struct IncludedRenderArchetypeData
         {
             /// <summary>int reference to _renderArchetypes</summary>
             public int archetypeIndex;
@@ -177,16 +175,9 @@ namespace NSprites
         #region jobs
         [BurstCompile]
         internal struct GatherPropertyJob<TProperty> : IJobChunk
-            where TProperty : struct
-            //TPropety supposed to be:
-            //  * int
-            //  * int2
-            //  * int3
-            //  * int4
-            //  * float
-            //  * float2
-            //  * float3
-            //  * float4
+            where TProperty : unmanaged
+            //TPropety supposed to be: int/int2/int3/int4/float/float2/float3/float4
+            //TODO: implement int2x2/int3x3/int4x4/float2x2/float3x3/float4x4 because HLSL only supports square matricies
         {
             //this should be filled every frame with GetDynamicComponentTypeHandle
             [ReadOnly] public DynamicComponentTypeHandle componentTypeHandle;
@@ -196,14 +187,7 @@ namespace NSprites
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
                 var data = chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(componentTypeHandle, typeSize);
-                NativeArray<TProperty>.Copy
-                (
-                    data,
-                    0,
-                    outputArray,
-                    firstEntityIndex,
-                    data.Length
-                );
+                NativeArray<TProperty>.Copy(data,0,outputArray,firstEntityIndex,data.Length);
             }
         }
         #endregion
@@ -230,14 +214,13 @@ namespace NSprites
         protected override void OnUpdate()
         {
             #region calculate sprite counts
-            var includedArchetypes = new NativeList<RenderArchetypeForSorting>(_renderArchetypes.Count, Allocator.TempJob);
+            var includedArchetypes = new NativeList<IncludedRenderArchetypeData>(_renderArchetypes.Count, Allocator.Temp);
             for(int i = 0; i < _renderArchetypes.Count; i++)
             {
-                var renderArchetype = _renderArchetypes[i];
                 //for some reason we need to update this SetSharedComponentFilter every time we get 
-                var spriteCount = renderArchetype.GetQueryFilteredByID().CalculateEntityCount();
-                if(spriteCount > 0)
-                    includedArchetypes.Add(new RenderArchetypeForSorting() { archetypeIndex = i, count = spriteCount });
+                var spriteCount = _renderArchetypes[i].GetQueryFilteredByID().CalculateEntityCount();
+                if (spriteCount > 0)
+                    includedArchetypes.Add(new IncludedRenderArchetypeData() { archetypeIndex = i, count = spriteCount });
             }
 
             if(includedArchetypes.Length == 0)
@@ -252,8 +235,7 @@ namespace NSprites
             for(int i = 0; i < includedArchetypes.Length; i++)
             {
                 var includedArchetype = includedArchetypes[i];
-                var renderArchetype = _renderArchetypes[includedArchetype.archetypeIndex];
-                gatherPropertiesHandles[i] = renderArchetype.GatherPropertyData(includedArchetype.count, this, Dependency);
+                gatherPropertiesHandles[i] = _renderArchetypes[includedArchetype.archetypeIndex].GatherPropertyData(includedArchetype.count, this, Dependency);
             }
             #endregion
 
@@ -267,19 +249,9 @@ namespace NSprites
                 renderArchetype.Draw(_quad, new Bounds(new Vector3(0f, 0f, i), Vector3.one * 1000f), includedArchetype.count);
             }
             #endregion
-
-            includedArchetypes.Dispose();
         }
 
         #region support methods
-        public bool IsRegistred(in int id)
-        {
-            for(int i = 0; i < _renderArchetypes.Count; i++)
-                if(_renderArchetypes[i].id == id)
-                    return true;
-            return false;
-        }
-
         /// <summary>
         /// Registrate unique render, which is combination of Material + MaterialPropertyBlock + set of StrcutredBuffer property names in shader.
         /// Every entity with <see cref="SpriteRenderID"/> component with ID value equal to passed ID, with <see cref="WorldPosition2D"/> and with all components which belongs to instancedPropertyNames (through [<see cref="InstancedPropertyComponent"/>] attribute) will be rendered with registered render.
@@ -301,6 +273,7 @@ namespace NSprites
 
                 instancedProperties[i] = propertyData.format switch
                 {
+                    ///TODO: replace num * sizeof(T) with <see cref="Unity.Collections.LowLevel.Unsafe.UnsafeUtility.SizeOf(Type)"> inside <see cref="RenderArchetype.InstancedProperty{T}"> constructor
                     PropertyFormat.Float => new RenderArchetype.InstancedProperty<float>(propertyID, capacityStep, sizeof(float), propertyData.componentType),
                     PropertyFormat.Float2 => new RenderArchetype.InstancedProperty<float2>(propertyID, capacityStep, 2 * sizeof(float), propertyData.componentType),
                     PropertyFormat.Float3 => new RenderArchetype.InstancedProperty<float3>(propertyID, capacityStep, 3 * sizeof(float), propertyData.componentType),
