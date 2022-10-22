@@ -27,9 +27,9 @@ namespace NSprites
     public partial class SpriteRenderingSystem : SystemBase
     {
         #region data
-        //assuming that there is no batching for different materials/textures/other not-instanced properties we can define some kind of render archetypes
-        //it is combination of material index + uniqueness of properties + all per-material properties values (mostly textures, because they are reason why we do this)
-        //if sprites uses different IRenderArchetype then they should be rendered in different calls
+        // TODO: rewrite this part, explain more
+        // assuming there is no batching for different materials/textures/other not-instanced properties we can define some kind of render archetypes
+        // it is combination of material + instanced properties set
         internal class RenderArchetype : IDisposable
         {
             internal interface IInstancedProperty : IDisposable
@@ -45,39 +45,39 @@ namespace NSprites
             internal class InstancedProperty<T> : IInstancedProperty
                 where T : unmanaged
             {
-                public int propertyID;
-                public ComponentType componentType;
-                public ComputeBuffer computeBuffer;
+                private int _propertyID;
+                private ComponentType _componentType;
+                private ComputeBuffer _computeBuffer;
 
                 internal InstancedProperty(in int propertyID, in int count, in int stride, in ComponentType componentType)
                 {
-                    this.propertyID = propertyID;
-                    this.componentType = componentType;
-                    computeBuffer = new ComputeBuffer(count, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
+                    _propertyID = propertyID;
+                    _componentType = componentType;
+                    _computeBuffer = new ComputeBuffer(count, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
                 }
-                public void Dispose() => computeBuffer.Dispose();
+                public void Dispose() => _computeBuffer.Dispose();
                 public JobHandle GatherData(in EntityQuery spriteQuery, in int length, in JobHandle inputDeps, SystemBase system)
                 {
                     return new GatherPropertyJob<T>
                     {
-                        componentTypeHandle = system.GetDynamicComponentTypeHandle(componentType),
-                        typeSize = computeBuffer.stride,
-                        outputArray = computeBuffer.BeginWrite<T>(0, length)
+                        componentTypeHandle = system.GetDynamicComponentTypeHandle(_componentType),
+                        typeSize = _computeBuffer.stride,
+                        outputArray = _computeBuffer.BeginWrite<T>(0, length)
                     }.ScheduleParallel(spriteQuery, inputDeps);   
                 }
                 public void EndWrite(in int count)
                 {
-                    computeBuffer.EndWrite<T>(count);
+                    _computeBuffer.EndWrite<T>(count);
                 }
                 public void Resize(in int size)
                 {
-                    var stride = computeBuffer.stride;
-                    computeBuffer.Release();
-                    computeBuffer = new ComputeBuffer(size, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
+                    var stride = _computeBuffer.stride;
+                    _computeBuffer.Release();
+                    _computeBuffer = new ComputeBuffer(size, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
                 }
                 public void PassToMaterialPropertyBlock(MaterialPropertyBlock materialPropertyBlock)
                 {
-                    materialPropertyBlock.SetBuffer(propertyID, computeBuffer);
+                    materialPropertyBlock.SetBuffer(_propertyID, _computeBuffer);
                 }
             }
 
@@ -176,10 +176,10 @@ namespace NSprites
         [BurstCompile]
         internal struct GatherPropertyJob<TProperty> : IJobChunk
             where TProperty : unmanaged
-            //TPropety supposed to be: int/int2/int3/int4/float/float2/float3/float4
-            //TODO: implement int2x2/int3x3/int4x4/float2x2/float3x3/float4x4 because HLSL only supports square matricies
+            // TPropety supposed to be: int/int2/int3/int4/float/float2/float3/float4
+            // TODO: implement int2x2/int3x3/int4x4/float2x2/float3x3/float4x4 because HLSL only supports square matricies
         {
-            //this should be filled every frame with GetDynamicComponentTypeHandle
+            // this should be filled every frame with GetDynamicComponentTypeHandle
             [ReadOnly] public DynamicComponentTypeHandle componentTypeHandle;
             public int typeSize;
             [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
