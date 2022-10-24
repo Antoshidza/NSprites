@@ -14,10 +14,16 @@ using UnityEngine;
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<int2>))]
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<int3>))]
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<int4>))]
+[assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<int2x2>))]
+[assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<int3x3>))]
+[assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<int4x4>))]
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float>))]
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float2>))]
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float3>))]
 [assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float4>))]
+[assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float2x2>))]
+[assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float3x3>))]
+[assembly: RegisterGenericJobType(typeof(NSprites.SpriteRenderingSystem.GatherPropertyJob<float4x4>))]
 #endregion
 
 namespace NSprites
@@ -162,6 +168,7 @@ namespace NSprites
         {
             public ComponentType componentType;
             public PropertyFormat format;
+            public PropertyUpdateMode updateMode;
         }
         internal struct IncludedRenderArchetypeData
         {
@@ -252,6 +259,7 @@ namespace NSprites
         }
 
         #region support methods
+        // TODO: make automatic search for registered ID, cause render archetype shouldn't be different if material is the same
         /// <summary>
         /// Registrate unique render, which is combination of Material + MaterialPropertyBlock + set of StrcutredBuffer property names in shader.
         /// Every entity with <see cref="SpriteRenderID"/> component with ID value equal to passed ID, with <see cref="WorldPosition2D"/> and with all components which belongs to instancedPropertyNames (through [<see cref="InstancedPropertyComponent"/>] attribute) will be rendered with registered render.
@@ -298,11 +306,11 @@ namespace NSprites
         }
 
         /// <summary>
-        /// Binds IComponentData to shader property. Binded components will be gathered from entities during render process to be passed to shader.
-        /// By default system will automatically gather and bind all component types which have [<see cref="InstancedPropertyComponent"/>] attribute to specified property.
+        /// Binds entity component to shader property. Binded components will be gathered from entities during render process to be passed to shader.
+        /// By default system will automatically gather and bind all component types which have <see cref="InstancedPropertyComponent"/> attribute to specified property.
         /// But you can use this method to manually pass bind data.
         /// </summary>
-        public void BindComponentToShaderProperty(in int propertyID, Type componentType, in PropertyFormat format)
+        public void BindComponentToShaderProperty(in int propertyID, Type componentType, in PropertyFormat format, in PropertyUpdateMode updateMode = default)
         {
             _instancedPropertiesFormats.Add
             (
@@ -310,25 +318,26 @@ namespace NSprites
                 new InstancedPropertyData
                 {
                     componentType = new ComponentType(componentType, ComponentType.AccessMode.ReadOnly),
-                    format = format
+                    format = format,
+                    updateMode = updateMode
                 }
             );
         }
         /// <summary>
-        /// Binds IComponentData to shader property. Binded components will be gathered from entities during render process to be passed to shader.
-        /// By default system will automatically gather and bind all component types which have [<see cref="InstancedPropertyComponent"/>] attribute to specified property.
+        /// Binds entity component to shader property. Binded components will be gathered from entities during render process to be passed to shader.
+        /// By default system will automatically gather and bind all component types which have <see cref="InstancedPropertyComponent"/> attribute to specified property.
         /// But you can use this method to manually pass bind data.
         /// </summary>
-        public void BindComponentToShaderProperty(in string propertyName, Type componentType, in PropertyFormat format)
+        public void BindComponentToShaderProperty(in string propertyName, Type componentType, in PropertyFormat format, in PropertyUpdateMode updateMode = default)
         {
-            BindComponentToShaderProperty(Shader.PropertyToID(propertyName), componentType, format);
+            BindComponentToShaderProperty(Shader.PropertyToID(propertyName), componentType, format, updateMode);
         }
+
         private void GatherPropertiesTypes()
         {
             foreach (var property in InstancedPropertyComponent.GetProperties())
-                BindComponentToShaderProperty(property.name, property.componentType, property.format);
+                BindComponentToShaderProperty(property.propertyName, property.componentType, property.format, property.updateMode);
         }
-
         private void GatherDefaultComponentTypes()
         {
             var disableRenderingComponentTypes = new NativeArray<ComponentType>(DisableRenderingComponent.GetTypes().ToArray(), Allocator.Persistent);

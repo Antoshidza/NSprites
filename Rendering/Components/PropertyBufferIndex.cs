@@ -1,8 +1,11 @@
-﻿using Unity.Entities;
+﻿using NSprites;
+using Unity.Entities;
+
+[assembly: InstancedPropertyComponent(typeof(PropertyBufferIndex), "_dataIndexBuffer", PropertyFormat.Int, PropertyUpdateMode.EachUpdate)]
 
 namespace NSprites
 {
-    internal struct PropertyBufferIndex : IComponentData
+    public struct PropertyBufferIndex : IComponentData
     {
         public int value;
     }
