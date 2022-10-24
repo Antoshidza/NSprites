@@ -17,7 +17,7 @@ namespace NSprites
 
         public static IEnumerable<ComponentType> GetTypes()
         {
-            return Utils.GetAssemblyAttributes<DisableRenderingComponent>()
+            return NSpritesUtils.GetAssemblyAttributes<DisableRenderingComponent>()
                 .Select((DisableRenderingComponent attr) => new ComponentType(attr.componentType, ComponentType.AccessMode.Exclude));
         }
     }

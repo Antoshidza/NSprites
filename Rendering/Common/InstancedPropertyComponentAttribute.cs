@@ -38,7 +38,7 @@ namespace NSprites
         /// <summary>Returns all <see cref="InstancedPropertyComponent"></see> from each assembly from whole app</summary>
         public static IEnumerable<InstancedPropertyComponent> GetProperties()
         {
-            return Utils.GetAssemblyAttributes<InstancedPropertyComponent>()
+            return NSpritesUtils.GetAssemblyAttributes<InstancedPropertyComponent>()
                 .Select((InstancedPropertyComponent attr) => attr);
         }
     }
