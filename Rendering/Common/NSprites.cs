@@ -3,6 +3,7 @@ using System;
 using UnityEngine;
 using System.Reflection;
 using Unity.Entities;
+using System.Runtime.CompilerServices;
 
 namespace NSprites
 {
@@ -11,40 +12,40 @@ namespace NSprites
         #region add components methods
         /// <summary>
         /// Adds all necessary components for rendering to entity:
-        /// <br>* <see cref="SpriteRendererTag"></see></br>
         /// <br>* <see cref="SpriteRenderID"></see> (empty, should be seted on play)</br>
-        /// <br>* <see cref="PropertyBufferIndex"></see> (empty, will automatically initialized by render system)</br>
-        /// <br>* <see cref="PropertyBufferIndexRange"></see> to entity's chunk (empty, will automatically initialized by render system)</br>
+        /// <br>* <see cref="PropertyPointer"></see> (empty, will automatically initialized by render system)</br>
+        /// <br>* <see cref="PropertyPointerChunk"></see> to entity's chunk (empty, will automatically initialized by render system)</br>
         /// </summary>
-        public static void AddSpriteRenderComponents(in Entity entity, in EntityManager entityManager, in bool hasReactiveComponents = true, in int renderID = default)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddSpriteRenderComponents(in Entity entity, in EntityManager entityManager, in int renderID = default, in bool hasReactiveComponents = true)
         {
-            entityManager.AddComponentData(entity, new SpriteRendererTag());
             entityManager.AddSharedComponentData(entity, new SpriteRenderID { id = renderID });
 
-#if !NSPRITES_REACTIVE_PROPERTIES_DISABLE
+#if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
             if (hasReactiveComponents)
             {
-                entityManager.AddComponentData(entity, new PropertyBufferIndex());
-                entityManager.AddChunkComponentData<PropertyBufferIndexRange>(entity);
+                entityManager.AddComponentData(entity, new PropertyPointer());
+                entityManager.AddChunkComponentData<PropertyPointerChunk>(entity);
             }
 #endif
         }
         /// <summary>
         /// Adds all necessary components for rendering to entity:
-        /// <br>* <see cref="SpriteRendererTag"></see></br>
         /// <br>* <see cref="SpriteRenderID"></see> (empty, should be seted on play)</br>
-        /// <br>* <see cref="PropertyBufferIndex"></see> (empty, will automatically initialized by render system)</br>
-        /// <br>* <see cref="PropertyBufferIndexRange"></see> to entity's chunk (empty, will automatically initialized by render system)</br>
+        /// <br>* <see cref="PropertyPointer"></see> (empty, will automatically initialized by render system)</br>
+        /// <br>* <see cref="PropertyPointerChunk"></see> to entity's chunk (empty, will automatically initialized by render system)</br>
         /// </summary>
-        public static void AddSpriteRenderComponents(this in EntityManager entityManager, in Entity entity, in bool hasReactiveComponents = true, in int renderID = default)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddSpriteRenderComponents(this in EntityManager entityManager, in Entity entity, in int renderID = default, in bool hasReactiveComponents = true)
         {
-            AddSpriteRenderComponents(entity, entityManager, hasReactiveComponents, renderID);
+            AddSpriteRenderComponents(entity, entityManager, renderID, hasReactiveComponents);
         }
         #endregion
 
         /// <summary>
         /// Returns <b>Tiling and Offset</b> value which can be helpfull to locate texture on atlas in shader
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector4 GetTextureST(Sprite sprite)
         {
             var ratio = new Vector2(1f / sprite.texture.width, 1f / sprite.texture.height);

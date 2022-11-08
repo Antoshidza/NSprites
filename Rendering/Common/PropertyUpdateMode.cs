@@ -1,21 +1,29 @@
 namespace NSprites
 {
     /// <summary> Tells how property should be updated: each update / only on new entity added / only change.
-    /// <para>The default mode is reactive (if not disabled in project), which is the most common used and most performant in many cases.
-    /// <br>With this mode data in <see cref="UnityEngine.ComputeBuffer"></see> updates only on changes/created entity.</br>
-    /// <br>Remember that there is at least one <see cref="EachUpdate"></see> property for <see cref="PropertyBufferIndex"></see> data to be able to access write data in shader.</br></para></summary>
+    /// <para>The default mode is <see cref="Reactive"/> (if not disabled in project), which is the most common used and most performant in many cases.
+    /// <br>With this mode data in <see cref="UnityEngine.ComputeBuffer"/> updates only on data-changed/ectities-created-destroyed.</br></para></summary>
     public enum PropertyUpdateMode
     {
-        /// <summary> Reactive property will be updated if: new entity created / data changed. Such properties layouted per-chunk.
-        /// <para>Note: if you use reactive properties, then you need to load <see cref="PropertyBufferIndex"></see> indexes to shader.
-        /// <br>To do so, please, use <b>StructuredBuffer&lt;int&gt; _dataIndexBuffer</b> in your shader, and access to reactive properties data through indexes from this buffer. </br></para>
-        /// <para>Note: if reactive properties disabled through <b>NSPRITES_REACTIVE_PROPERTIES_DISABLE</b> then <see cref="Reactive"></see> will be registered as same as <see cref="EachUpdate"></see></para></summary>
+        /// <summary> Reactive property will be updated if: new entity created or destroyed (chunk reordered) / data changed.
+        /// Such properties layouted per-chunk. Additional space for buffer also allocated per-chunk.
+        /// <para>Note: if you use reactive properties, then you need to load <see cref="PropertyPointer"></see> indexes to shader.
+        /// <br>To do so, please, use <b>StructuredBuffer&lt;int&gt; _propertyPointers</b> in your shader, and access to reactive properties data through indexes from this buffer.</br></para>
+        /// <para>Note: if you not using <see cref="Reactive"/> properties at all you can disable related code section using <b>NSPRITES_REACTIVE_DISABLE</b>
+        /// <br><see cref="Reactive"/> then will be registered as same as <see cref="EachUpdate"/> (if enabled) or as <see cref="Static"/></br></para>
+        /// </summary>
         Reactive,
-        /// <summary> EachUpdate property will be updated each frame. Such properties layoted per-entity, so you can just access it through instanceID in shader </summary>
+        /// <summary> EachUpdate property will be updated each frame. Such properties layoted and allocated per-entity,
+        /// so you can just access it directly through instanceID in shader
+        /// <para>Note: if you not using <see cref="EachUpdate"/> properties at all you can disable related code section using <b>NSPRITES_EACH_UPDATE_DISABLE</b>
+        /// <br><see cref="EachUpdate"/> then will be registered as same as <see cref="Reactive"/> (if enabled) or as <see cref="Static"/></br></para>
+        /// </summary>
         EachUpdate,
-        /// <summary> Static property will be updated only on new entity created.
-        /// Static properties can't handle destroyed/moved entities, so any changes but create will invalidate this data.
-        /// Such properties layoted per-entity, so you can just access it through instanceID in shader </summary>
+        /// <summary> Static property is the same as <see cref="Reactive"/> but not updated on data changes only on entity created / destroyed (chunk reordered).
+        /// Use this mode if you initialize data once on entity creation <b>(ONLY BEFORE <see cref="SpriteRenderingSystem"/> UPDATE)</b> and never change it.
+        /// <para>Note: if you not using <see cref="Static"/> properties at all you can disable related code section using <b>NSPRITES_STATIC_DISABLE</b>
+        /// <br><see cref="Static"/> then will be registered as same as <see cref="Reactive"/> (if enabled) or as <see cref="EachUpdate"/></br></para>
+        /// </summary>
         Static
     }
 }

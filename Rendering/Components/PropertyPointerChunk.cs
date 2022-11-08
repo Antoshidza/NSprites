@@ -1,9 +1,8 @@
 ﻿using Unity.Entities;
-using Unity.Mathematics;
 
 namespace NSprites
 {
-    internal struct PropertyBufferIndexRange : IComponentData
+    internal struct PropertyPointerChunk : IComponentData
     {
         public int from;
         public int count;

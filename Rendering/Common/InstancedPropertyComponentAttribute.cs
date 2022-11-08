@@ -8,7 +8,7 @@ namespace NSprites
     /// Use this attribute to mark that component contains property data for particular shader's StructuredBuffer (instanced) property.
     /// <br><see cref="SpriteRenderingSystem.OnCreate"></see> will automatically fetch all component types and map them with shader property's names.</br>
     /// <br>Another way is to use <see cref="SpriteRenderingSystem.BindComponentToShaderProperty"></see> to bind component types to shader property's names manually.</br>
-    /// <para> WARNING: component's actual content should be the same as choosed <see cref="PropertyFormat"></see>, else errors will appear during loading data process. </para>
+    /// <para> WARNING: component's actual content should be the same as choosed <see cref="PropertyFormat"></see>, else errors will appear during loading data process.</para>
     /// <para> Note: attribute target is <see cref="AttributeTargets.Assembly"></see> to let you mark types outside from your assembly </para>
     /// </summary>
     [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]

@@ -5,6 +5,10 @@ using Unity.Entities;
 
 namespace NSprites
 {
+    /// <summary>
+    /// Marks component to use as <see cref="ComponentType.AccessMode.Exclude"/> for <see cref="SpriteRenderingSystem"/>.
+    /// So entities with such components won't be handled / rendered.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
     public class DisableRenderingComponent : Attribute 
     {
