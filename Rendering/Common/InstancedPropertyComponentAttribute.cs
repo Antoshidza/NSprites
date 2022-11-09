@@ -20,19 +20,15 @@ namespace NSprites
         public string propertyName;
         // data's type which component contains
         public PropertyFormat format;
-        // what events trigger compute buffer update / reallocate
-        public PropertyUpdateMode updateMode;
 
         /// <param name="componentType">entity component type which will be data source for shader's properties</param>
         /// <param name="propertyName">shader's instanced property name</param>
         /// <param name="format">data's type which component contains</param>
-        /// <param name="updateMode">update mode dependent on which <see cref="UnityEngine.ComputeBuffer"></see> gets update stratagy</param>
-        public InstancedPropertyComponent(Type componentType, string propertyName, PropertyFormat format, PropertyUpdateMode updateMode = default)
+        public InstancedPropertyComponent(Type componentType, string propertyName, PropertyFormat format)
         {
             this.componentType = componentType;
             this.propertyName = propertyName;
             this.format = format;
-            this.updateMode = updateMode;
         }
 
         /// <summary>Returns all <see cref="InstancedPropertyComponent"></see> from each assembly from whole app</summary>

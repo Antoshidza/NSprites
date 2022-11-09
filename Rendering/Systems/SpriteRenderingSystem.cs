@@ -18,7 +18,7 @@ namespace NSprites
         /// <summary><see cref="Mesh"/> We will use to render every sprite, which can be created once in system</summary>
         private readonly Mesh _quad = NSpritesUtils.ConstructQuad();
         /// <summary>Shader property's id to property data map</summary>
-        private readonly Dictionary<int, InstancedPropertyData> _propetyMap = new();
+        private readonly Dictionary<int, PropertyInternalData> _propetyMap = new();
         /// <summary>All whenever registered render archetypes. Each registred archetype will be updated every frame no matter if there is any entities.</summary>
         private readonly List<RenderArchetype> _renderArchetypes = new();
         /// <summary>System's state with all necessary data to pass to <see cref="RenderArchetype"/> to update</summary>
@@ -80,12 +80,22 @@ namespace NSprites
         /// <param name="id">ID of <see cref="SpriteRenderID.id"/>. All entities with the same SCD will be updated by registering render archetype. Client should manage uniqueness (or not) of ids by himself.</param>
         /// <param name="material"><see cref="Material"/> wich will be used to render sprites.</param>
         /// <param name="materialPropertyBlock"><see cref="MaterialPropertyBlock"/> you can pass if you want to do some extra overriding by yourself.</param>
-        /// <param name="instancedPropertyNames">names of StructuredBuffer properties in shader.</param>
-        /// <param name="capacity">compute buffers intial capacity.</param>
+        /// <param name="propertyDataSet">IDs of StructuredBuffer properties in shader AND <see cref="PropertyUpdateMode"/> for each property.</param>
+        /// <param name="initialCapacity">compute buffers intial capacity.</param>
         /// <param name="capacityStep">compute buffers capacity increase step when the current limit on the number of entities is exceeded.</param>
-        public void RegistrateRender(in int id, Material material, string[] instancedPropertyNames, MaterialPropertyBlock materialPropertyBlock = null, in int capacity = 1, in int capacityStep = 1)
+        public void RegistrateRender(in int id, Material material, PropertyData[] propertyDataSet, MaterialPropertyBlock materialPropertyBlock = null, in int initialCapacity = 1, in int capacityStep = 1)
         {
-            _renderArchetypes.Add(new RenderArchetype(material, instancedPropertyNames, _propetyMap, id, this, materialPropertyBlock, capacity, capacityStep));
+#if UNITY_EDITOR
+            if (material == null)
+                throw new ArgumentException($"You can't registrate (id: {id}) renderer with null material");
+            if (propertyDataSet == null)
+                throw new ArgumentException($"You can't registrate (id: {id}) renderer with null property data set");
+            if(initialCapacity < 1)
+                throw new ArgumentException($"You can't registrate (id: {id}) renderer with initial capacity less then 1");
+            if (capacityStep < 1)
+                throw new ArgumentException($"You can't registrate (id: {id}) renderer with capacity step less then 1");
+#endif
+            _renderArchetypes.Add(new RenderArchetype(material, propertyDataSet, _propetyMap, id, this, materialPropertyBlock, initialCapacity, capacityStep));
         }
 
         /// <summary>
@@ -93,25 +103,25 @@ namespace NSprites
         /// By default system will automatically gather and bind all component types which have <see cref="InstancedPropertyComponent"/> attribute to specified property.
         /// But you can use this method to manually pass bind data.
         /// </summary>
-        public void BindComponentToShaderProperty(in int propertyID, Type componentType, in PropertyFormat format, in PropertyUpdateMode updateMode = default)
+        public void BindComponentToShaderProperty(in int propertyID, Type componentType, in PropertyFormat format)
         {
-            _propetyMap.Add(propertyID, new InstancedPropertyData(new ComponentType(componentType, ComponentType.AccessMode.ReadOnly), format, updateMode));
+            _propetyMap.Add(propertyID, new PropertyInternalData(new ComponentType(componentType, ComponentType.AccessMode.ReadOnly), format));
         }
         /// <summary>
         /// Binds component to shader's property. Binded components will be gathered from entities during render process to be passed to shader.
         /// By default system will automatically gather and bind all component types which have <see cref="InstancedPropertyComponent"/> attribute to specified property.
         /// But you can use this method to manually pass bind data.
         /// </summary>
-        public void BindComponentToShaderProperty(in string propertyName, Type componentType, in PropertyFormat format, in PropertyUpdateMode updateMode = default)
+        public void BindComponentToShaderProperty(in string propertyName, Type componentType, in PropertyFormat format)
         {
-            BindComponentToShaderProperty(Shader.PropertyToID(propertyName), componentType, format, updateMode);
+            BindComponentToShaderProperty(Shader.PropertyToID(propertyName), componentType, format);
         }
 
         /// <summary>Fills <see cref="_propetyMap"/> with data of all types marked by <see cref="InstancedPropertyComponent"/> attribute</summary>
         private void GatherPropertiesTypes()
         {
             foreach (var property in InstancedPropertyComponent.GetProperties())
-                BindComponentToShaderProperty(property.propertyName, property.componentType, property.format, property.updateMode);
+                BindComponentToShaderProperty(property.propertyName, property.componentType, property.format);
         }
         /// <summary>Returns array with all default components for rendering entities including types marked with <see cref="DisableRenderingComponent"/> attribute</summary>
         private NativeArray<ComponentType> GetDefaultComponentTypes(in Allocator allocator = Allocator.Temp)

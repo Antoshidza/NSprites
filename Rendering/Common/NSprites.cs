@@ -107,5 +107,48 @@ namespace NSprites
                 result.AddRange(assembly.GetCustomAttributes<TAttribute>());
             return result;
         }
+
+        /// <summary>
+        /// Returns actual <see cref="PropertyUpdateMode"/> depending on what mode passed and what modes enabled in project
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static PropertyUpdateMode GetActualMode(in PropertyUpdateMode mode)
+        {
+            /// if property is <see cref="PropertyUpdateMode.Reactive"/> but this mode is disabled then switch to <see cref="PropertyUpdateMode.EachUpdate"/> if not disabled, otherwise switch to <see cref="PropertyUpdateMode.Static"/>
+#if NSPRITES_REACTIVE_DISABLE
+            if (mode == PropertyUpdateMode.Reactive)
+            {
+#if !NSPRITES_EACH_UPDATE_DISABLE
+                    return PropertyUpdateMode.EachUpdate;
+#else
+                    return PropertyUpdateMode.Static;
+#endif
+            }
+#endif
+            /// if property is <see cref="PropertyUpdateMode.Static"/> but this mode is disabled then switch to <see cref="PropertyUpdateMode.Reactive"/> if not disabled, otherwise switch to <see cref="PropertyUpdateMode.EachUpdate"/>
+#if NSPRITES_STATIC_DISABLE
+            if (mode == PropertyUpdateMode.Static)
+            {
+#if !NSPRITES_REACTIVE_DISABLE
+                    return PropertyUpdateMode.Reactive;
+#else
+                    return PropertyUpdateMode.EachUpdate;
+#endif
+            }
+#endif
+            /// if property is <see cref="PropertyUpdateMode.EachUpdate"/> but this mode is disabled then switch to <see cref="PropertyUpdateMode.Reactive"/> if not disabled, otherwise switch to <see cref="PropertyUpdateMode.Static"/>
+#if NSPRITES_EACH_UPDATE_DISABLE
+            /// if property is <see cref="PropertyUpdateMode.EachUpdate"/> but this mode is disabled then switch to <see cref="PropertyUpdateMode.Reactive"/> if not disabled, otherwise switch to <see cref="PropertyUpdateMode.Static"/>
+            if (mode == PropertyUpdateMode.EachUpdate)
+            {
+#if !NSPRITES_REACTIVE_DISABLE
+                    return PropertyUpdateMode.Reactive;
+#else
+                    return PropertyUpdateMode.Static;
+#endif
+            }
+#endif
+            return mode;
+        }
     }
 }

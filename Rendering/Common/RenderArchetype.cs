@@ -11,60 +11,29 @@ using UnityEngine;
 
 namespace NSprites
 {
-    /// <summary>Holds info about: what component / data format / update mode property uses</summary>
-    internal struct InstancedPropertyData
+    #region data structs
+    /// <summary>Holds info about: what shader's property id / update mode property uses</summary>
+    public struct PropertyData
+    {
+        public readonly int propertyID;
+        public readonly PropertyUpdateMode updateMode;
+
+        public PropertyData(int propertyID, PropertyUpdateMode updateMode)
+        {
+            this.propertyID = propertyID;
+            this.updateMode = updateMode;
+        }
+    }
+    /// <summary>Holds info about: what component / data format property uses</summary>
+    internal struct PropertyInternalData
     {
         public ComponentType componentType;
         public PropertyFormat format;
-        public PropertyUpdateMode updateMode;
 
-        public InstancedPropertyData(in ComponentType componentType, in PropertyFormat format, in PropertyUpdateMode updateMode)
+        public PropertyInternalData(in ComponentType componentType, in PropertyFormat format)
         {
             this.componentType = componentType;
             this.format = format;
-            this.updateMode = updateMode;
-
-            #region update mode fallbacks
-            // next we want check all combinations of disabled properties modes and switch to more relevant
-
-            /// if property is <see cref="PropertyUpdateMode.Reactive"/> but this mode is disabled then switch to <see cref="PropertyUpdateMode.EachUpdate"/> if not disabled, otherwise switch to <see cref="PropertyUpdateMode.Static"/>
-#if NSPRITES_REACTIVE_DISABLE
-            if (updateMode == PropertyUpdateMode.Reactive)
-            {
-                this.updateMode =
-#if !NSPRITES_EACH_UPDATE_DISABLE
-                    PropertyUpdateMode.EachUpdate;
-#else
-                    PropertyUpdateMode.Static;
-#endif
-            }
-#endif
-            /// if property is <see cref="PropertyUpdateMode.Static"/> but this mode is disabled then switch to <see cref="PropertyUpdateMode.Reactive"/> if not disabled, otherwise switch to <see cref="PropertyUpdateMode.EachUpdate"/>
-#if NSPRITES_STATIC_DISABLE
-            if (updateMode == PropertyUpdateMode.Static)
-            {
-                this.updateMode =
-#if !NSPRITES_REACTIVE_DISABLE
-                    PropertyUpdateMode.Reactive;
-#else
-                    PropertyUpdateMode.EachUpdate;
-#endif
-            }
-#endif
-            /// if property is <see cref="PropertyUpdateMode.EachUpdate"/> but this mode is disabled then switch to <see cref="PropertyUpdateMode.Reactive"/> if not disabled, otherwise switch to <see cref="PropertyUpdateMode.Static"/>
-#if NSPRITES_EACH_UPDATE_DISABLE
-            /// if property is <see cref="PropertyUpdateMode.EachUpdate"/> but this mode is disabled then switch to <see cref="PropertyUpdateMode.Reactive"/> if not disabled, otherwise switch to <see cref="PropertyUpdateMode.Static"/>
-            if (updateMode == PropertyUpdateMode.EachUpdate)
-            {
-                this.updateMode =
-#if !NSPRITES_REACTIVE_DISABLE
-                    PropertyUpdateMode.Reactive;
-#else
-                    PropertyUpdateMode.Static;
-#endif
-            }
-#endif
-            #endregion
         }
     }
     internal struct SystemState
@@ -138,6 +107,7 @@ namespace NSprites
         }
     }
 #endif
+    #endregion
 
     #region property jobs
     // TPropety supposed to be: int/int2/int3/int4/int2x2/int3x3/int4x4/float/float2/float3/float4/float2x2/float3x3/float4x4
@@ -228,11 +198,11 @@ namespace NSprites
             where TProperty : unmanaged
     {
         // this should be filled every frame with GetDynamicComponentTypeHandle
-        [ReadOnly]/*[NativeDisableContainerSafetyRestriction] */public DynamicComponentTypeHandle componentTypeHandle;
+        [ReadOnly]public DynamicComponentTypeHandle componentTypeHandle;
         public int typeSize;
         [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
 
-        public void Execute(ArchetypeChunk chunk, [NoAlias] int chunkIndex, [NoAlias] int firstEntityIndex)
+        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
         {
             WriteData(chunk, componentTypeHandle, firstEntityIndex, outputArray, typeSize);
         }
@@ -391,8 +361,6 @@ namespace NSprites
         public override void EndWrite(in int writeCount) => _computeBuffer.EndWrite<T>(writeCount);
     }
     #endregion
-
-    /// TODO: make <see cref="PropertyUpdateMode"/> provided by registration instead of insisde <see cref="InstancedPropertyComponent"/> attribute
 
     /// <summary>
     /// Assuming there is no batching for different materials/textures/other not-instanced properties we can define some kind of render archetypes
@@ -598,9 +566,13 @@ namespace NSprites
         private int RP_Count => _propertiesModeCountAndOffsets.c0.x;
 #endif
 
-        public RenderArchetype(Material material, string[] instancedPropertyNames, Dictionary<int, InstancedPropertyData> propertyMap, in int id, SystemBase system, MaterialPropertyBlock overrideMPB = null, in int preallocatedSpace = 1, in int minCapacityStep = 1)
+        public RenderArchetype(Material material, PropertyData[] propertyDataSet, Dictionary<int, PropertyInternalData> propertyMap, in int id, SystemBase system, MaterialPropertyBlock overrideMPB = null, in int preallocatedSpace = 1, in int minCapacityStep = 1)
         {
 #if UNITY_EDITOR
+            if (material == null)
+                throw new ArgumentException($"While creating render archetype (id: {id}) material was null passed");
+            if (propertyDataSet == null)
+                throw new ArgumentException($"While creating render archetype (id: {id}) property data set was null passed");
             if (preallocatedSpace < 1)
                 throw new ArgumentException($"You're trying to create render archetype (id: {id}) with {preallocatedSpace} initial capacity, which can't be below 1");
             if (minCapacityStep < 1)
@@ -623,20 +595,18 @@ namespace NSprites
 #endif
 
             #region initialize properties
-            _properties = new InstancedProperty[instancedPropertyNames.Length];
-            var propertiesData = new NativeArray<InstancedPropertyData>(_properties.Length, Allocator.Temp);
-            var propIDs = new NativeArray<int>(_properties.Length, Allocator.Temp);
+            _properties = new InstancedProperty[propertyDataSet.Length];
+            var propertiesInternalDataSet = new NativeArray<PropertyInternalData>(_properties.Length, Allocator.Temp);
             /// 1st iteration fetch property data from map and count all types of <see cref="PropertyUpdateMode">
             for (int propIndex = 0; propIndex < _properties.Length; propIndex++)
             {
-                var propID = Shader.PropertyToID(instancedPropertyNames[propIndex]);
+                var propData = propertyDataSet[propIndex];
 #if UNITY_EDITOR
-                if (!propertyMap.ContainsKey(propID))
-                    throw new ArgumentException($"There is no data in map for {instancedPropertyNames[propIndex]} shader's property");
+                if (!propertyMap.ContainsKey(propData.propertyID))
+                    throw new ArgumentException($"There is no data in map for {material.shader.GetPropertyNameId(propData.propertyID)} shader's property ID");
 #endif
-                propIDs[propIndex] = propID;
-                var propData = propertyMap[propID];
-                propertiesData[propIndex] = propData;
+                var propInternalData = propertyMap[propData.propertyID];
+                propertiesInternalDataSet[propIndex] = propInternalData;
                 _propertiesModeCountAndOffsets.c0[(int)propData.updateMode]++;
             }
             /// 2nd iteration initialize <see cref="_properties"> with known indexes offsets
@@ -644,9 +614,10 @@ namespace NSprites
             var offsets = _propertiesModeCountAndOffsets.c1; // copy to be able to increment
             for (int propIndex = 0; propIndex < _properties.Length; propIndex++)
             {
-                var propData = propertiesData[propIndex];
-                var prop = (InstancedProperty)propData.format;
-                prop.Initialize(propIDs[propIndex], preallocatedSpace, UnsafeUtility.SizeOf(propData.componentType.GetManagedType()), propData.componentType);
+                var propData = propertyDataSet[propIndex];
+                var propInternalData = propertiesInternalDataSet[propIndex];
+                var prop = (InstancedProperty)propInternalData.format;
+                prop.Initialize(propData.propertyID, preallocatedSpace, UnsafeUtility.SizeOf(propInternalData.componentType.GetManagedType()), propInternalData.componentType);
                 _properties[offsets[(int)propData.updateMode]++] = prop;
             }
 #if !NSPRITES_EACH_UPDATE_DISABLE && (!NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE)
