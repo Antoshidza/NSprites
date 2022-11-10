@@ -17,12 +17,12 @@ var renderSystem = World.GetSystem<SpriteRenderingSystem>();
 renderSystem.RegistrateRender
 (
     renderID,
-    material,                           // material with [Enable GPU Instancing] enabled and shader supporting instancing
-    null,                               // override for MaterialPropertyBlock if needed
-    128,                                // initial ComputeBuffers capacity
-    128,                                // minimal capacity step for ComputeBuffers
-    "_pos2D",                           // world 2D position property
-    "_color"                            // color property
+    material,   // material with [Enable GPU Instancing] enabled and shader supporting instancing
+    null,       // override for MaterialPropertyBlock if needed
+    128,        // initial ComputeBuffers capacity
+    128,        // minimal capacity step for ComputeBuffers
+    "_pos2D",   // world 2D position property
+    "_color"    // color property
 );
 ```
 ```csharp
