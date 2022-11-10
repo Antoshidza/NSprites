@@ -5,6 +5,7 @@ This framework provides sprite rendering system compatible with Entities package
 Basically it sync whatever entity component you want with GPU data to perform instanced rendering. As a result all entities with same Material can be rendered with single DrawCall.
 
 ## Basic API
+**For more detailed information please read [project's wiki](https://github.com/Antoshidza/NSprites/wiki).**
 ```csharp
 // registrate components as properties at assembly level anywhere in project
 [assembly: InstancedPropertyComponent(typeof(WorldPosition2D), "_pos2D", PropertyFormat.Float2)]
@@ -55,7 +56,6 @@ Varyings UnlitVertex(Attributes attributes, uint instanceID : SV_InstanceID)
     // ...
 }
 ```
-
 
 ## How it works
 [`SpriteRenderingSystem`](https://github.com/Antoshidza/NSprites/blob/main/Rendering/Systems/SpriteRenderingSystem.cs) sync registered entity components with [ComputeBuffers](https://docs.unity3d.com/ScriptReference/ComputeBuffer.html) to send data to GPU and then renders entities with [`Graphics.DrawMeshInstancedProcedural`](https://docs.unity3d.com/ScriptReference/Graphics.DrawMeshInstancedProcedural.html). System also controls how ComputeBuffers reallocates if capacity exceeds. Sprites are simple entities with no limits what components you use.
