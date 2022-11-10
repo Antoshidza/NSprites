@@ -41,7 +41,6 @@ namespace NSprites
             foreach (var archetype in _renderArchetypes)
                 archetype.Dispose();
         }
-
         protected override void OnUpdate()
         {
             // update state to pass to render archetypes
@@ -83,7 +82,7 @@ namespace NSprites
         /// <param name="propertyDataSet">IDs of StructuredBuffer properties in shader AND <see cref="PropertyUpdateMode"/> for each property.</param>
         /// <param name="initialCapacity">compute buffers intial capacity.</param>
         /// <param name="capacityStep">compute buffers capacity increase step when the current limit on the number of entities is exceeded.</param>
-        public void RegistrateRender(in int id, Material material, PropertyData[] propertyDataSet, MaterialPropertyBlock materialPropertyBlock = null, in int initialCapacity = 1, in int capacityStep = 1)
+        public void RegistrateRender(in int id, Material material, MaterialPropertyBlock materialPropertyBlock = null, in int initialCapacity = 1, in int capacityStep = 1, params PropertyData[] propertyDataSet)
         {
 #if UNITY_EDITOR
             if (material == null)

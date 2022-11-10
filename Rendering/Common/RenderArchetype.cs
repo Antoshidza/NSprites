@@ -15,12 +15,17 @@ namespace NSprites
     /// <summary>Holds info about: what shader's property id / update mode property uses</summary>
     public struct PropertyData
     {
-        public readonly int propertyID;
-        public readonly PropertyUpdateMode updateMode;
+        internal readonly int propertyID;
+        internal readonly PropertyUpdateMode updateMode;
 
-        public PropertyData(int propertyID, PropertyUpdateMode updateMode)
+        public PropertyData(int propertyID, in PropertyUpdateMode updateMode)
         {
             this.propertyID = propertyID;
+            this.updateMode = updateMode;
+        }
+        public PropertyData(in string propertyName, in PropertyUpdateMode updateMode)
+        {
+            propertyID = Shader.PropertyToID(propertyName);
             this.updateMode = updateMode;
         }
     }
