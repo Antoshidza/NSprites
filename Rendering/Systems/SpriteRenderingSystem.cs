@@ -9,7 +9,7 @@ using UnityEngine;
 namespace NSprites
 {
     /// <summary>
-    /// Renders entities (both in runtime and editor) with <see cref="SpriteRenderID"/> : <see cref="ISharedComponentData"/> as 2D sprites depending on registered data through <see cref="RegistrateRender"/>
+    /// Renders entities (both in runtime and editor) with <see cref="SpriteRenderID"/> : <see cref="ISharedComponentData"/> as 2D sprites depending on registered data through <see cref="RegisterRender"/>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
@@ -82,7 +82,7 @@ namespace NSprites
         /// <param name="propertyDataSet">IDs of StructuredBuffer properties in shader AND <see cref="PropertyUpdateMode"/> for each property.</param>
         /// <param name="initialCapacity">compute buffers intial capacity.</param>
         /// <param name="capacityStep">compute buffers capacity increase step when the current limit on the number of entities is exceeded.</param>
-        public void RegistrateRender(in int id, Material material, MaterialPropertyBlock materialPropertyBlock = null, in int initialCapacity = 1, in int capacityStep = 1, params PropertyData[] propertyDataSet)
+        public void RegisterRender(in int id, Material material, MaterialPropertyBlock materialPropertyBlock = null, in int initialCapacity = 1, in int capacityStep = 1, params PropertyData[] propertyDataSet)
         {
 #if UNITY_EDITOR
             if (material == null)

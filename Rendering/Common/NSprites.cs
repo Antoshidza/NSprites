@@ -17,12 +17,12 @@ namespace NSprites
         /// <br>* <see cref="PropertyPointerChunk"></see> to entity's chunk (empty, will automatically initialized by render system)</br>
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void AddSpriteRenderComponents(in Entity entity, in EntityManager entityManager, in int renderID = default, in bool hasReactiveComponents = true)
+        public static void AddSpriteRenderComponents(in Entity entity, in EntityManager entityManager, in int renderID = default, in bool hasPointerComponents = true)
         {
             entityManager.AddSharedComponentData(entity, new SpriteRenderID { id = renderID });
 
 #if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
-            if (hasReactiveComponents)
+            if (hasPointerComponents)
             {
                 entityManager.AddComponentData(entity, new PropertyPointer());
                 entityManager.AddChunkComponentData<PropertyPointerChunk>(entity);
@@ -36,9 +36,9 @@ namespace NSprites
         /// <br>* <see cref="PropertyPointerChunk"></see> to entity's chunk (empty, will automatically initialized by render system)</br>
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void AddSpriteRenderComponents(this in EntityManager entityManager, in Entity entity, in int renderID = default, in bool hasReactiveComponents = true)
+        public static void AddSpriteRenderComponents(this in EntityManager entityManager, in Entity entity, in int renderID = default, in bool hasPointerComponents = true)
         {
-            AddSpriteRenderComponents(entity, entityManager, renderID, hasReactiveComponents);
+            AddSpriteRenderComponents(entity, entityManager, renderID, hasPointerComponents);
         }
         #endregion
 
