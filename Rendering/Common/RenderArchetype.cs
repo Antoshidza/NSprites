@@ -28,6 +28,7 @@ namespace NSprites
             propertyID = Shader.PropertyToID(propertyName);
             this.updateMode = updateMode;
         }
+        public static implicit operator PropertyData(in string propertyName) => new(propertyName);
     }
     /// <summary>Holds info about: what component / data format property uses</summary>
     internal struct PropertyInternalData
