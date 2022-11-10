@@ -1,8 +1,8 @@
 {
   "name": "com.tonymax.nsprites",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "displayName": "NSprites",
-  "description": "DOTS sprite rendering system which use GPU instancing to draw sprites represented as entities.",
+  "description": "DOTS sprite rendering system. Uses GPU instancing with compute buffers to draw entities as sprites.",
   "unity": "2020.3",
   "dependencies": {
     "com.unity.entities": "0.51.1-preview.21"
