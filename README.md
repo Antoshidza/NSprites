@@ -14,7 +14,7 @@ Basically it sync whatever entity component you want with GPU data to perform in
 // registrate render with ID, Material, capacity data and set of properties
 var renderSystem = World.GetSystem<SpriteRenderingSystem>();
 // don't registrate same renderID
-renderSystem.RegistrateRender
+renderSystem.RegisterRender
 (
     renderID,
     material,   // material with [Enable GPU Instancing] enabled and shader supporting instancing
@@ -71,3 +71,9 @@ Varyings UnlitVertex(Attributes attributes, uint instanceID : SV_InstanceID)
 ### Install via git submodule
 * `cd` to your project's `/Packages` folder
 * git submodule https://github.com/Antoshidza/NSprites.git
+
+## Support :+1: Contribute :computer: Contanct :speech_balloon:
+I wish this project will be helpful for any ECS early adopters! So feel free to send bug reports / pull requests, start discussions / critique, those all are **highly** appreciated!
+You can contact with my [discord account](https://www.discordapp.com/users/219868910223228929)!
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/antoshidzamax)
