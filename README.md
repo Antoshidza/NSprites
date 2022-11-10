@@ -32,12 +32,35 @@ entityManager.AddSpriteRenderComponents(spriteEntity, renderID);
 entityManager.AddComponentData(new WorldPosition2D());          
 entityManager.AddComponentData(new SpriteColor(Color.White));
 ```
-Also shader you're using should be compatible with instancing. Check my [example shader gist](https://gist.github.com/Antoshidza/387bf4a3a3efd62c8ca4267e800ad3bc). The main idea is to use `StructuredBuffer<T> _propertyName`. Though it is possible to use instanced properties with ShaderGraph, so you may try your option.
+Also shader you're using should be compatible with instancing. Check my [example shader gist](https://gist.github.com/Antoshidza/387bf4a3a3efd62c8ca4267e800ad3bc). The main idea is to use `StructuredBuffer<T> _propertyName`. Though it is possible to use instanced properties with ShaderGraph, so you may try your option. For local example shader main part can look like:
+```hlsl
+#if defined(UNITY_INSTANCING_ENABLED) || defined(UNITY_PROCEDURAL_INSTANCING_ENABLED) || defined(UNITY_STEREO_INSTANCING_ENABLED)
+StructuredBuffer<int> _propertyPointers;
+StructuredBuffer<float2> _pos2D;
+StructuredBuffer<float4> _color;
+#endif
+// ...
+Varyings UnlitVertex(Attributes attributes, uint instanceID : SV_InstanceID)
+{
+    // ...    
+#if defined(UNITY_INSTANCING_ENABLED) || defined(UNITY_PROCEDURAL_INSTANCING_ENABLED) || defined(UNITY_STEREO_INSTANCING_ENABLED)
+    int propPointer = _propertyPointers[instanceID]; // this is internal package property to point right data during component sync
+    float2 pos = _pos2D[propPointer];
+    float4 color = _color[propPointer];
+#else
+    //fallback if somehow instancing failed
+    float2 pos = float2(0,0);
+    float4 color = flaot4(1,1,1,1);
+#endif
+    // ...
+}
+```
+
 
 ## How it works
 [`SpriteRenderingSystem`](https://github.com/Antoshidza/NSprites/blob/main/Rendering/Systems/SpriteRenderingSystem.cs) sync registered entity components with [ComputeBuffers](https://docs.unity3d.com/ScriptReference/ComputeBuffer.html) to send data to GPU and then renders entities with [`Graphics.DrawMeshInstancedProcedural`](https://docs.unity3d.com/ScriptReference/Graphics.DrawMeshInstancedProcedural.html). System also controls how ComputeBuffers reallocates if capacity exceeds. Sprites are simple entities with no limits what components you use.
 
-## Instalation
+## Installation
 ### Requirements
 * Unity 2020.3.x / 2021.3.x
 * Entities 0.51.x
