@@ -18,12 +18,12 @@ namespace NSprites
         internal readonly int propertyID;
         internal readonly PropertyUpdateMode updateMode;
 
-        public PropertyData(int propertyID, in PropertyUpdateMode updateMode)
+        public PropertyData(int propertyID, in PropertyUpdateMode updateMode = default)
         {
             this.propertyID = propertyID;
             this.updateMode = updateMode;
         }
-        public PropertyData(in string propertyName, in PropertyUpdateMode updateMode)
+        public PropertyData(in string propertyName, in PropertyUpdateMode updateMode = default)
         {
             propertyID = Shader.PropertyToID(propertyName);
             this.updateMode = updateMode;
