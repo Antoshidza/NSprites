@@ -997,7 +997,8 @@ namespace NSprites
         /// <summary>Draws instances in quantity based on the number of entities related to this <see cref="RenderArchetype"/>. Call it after <see cref="ScheduleUpdate"/> and <see cref="CompleteUpdate"/>.</summary>
         public void Draw(Mesh mesh, in Bounds bounds)
         {
-            Graphics.DrawMeshInstancedProcedural(mesh, 0, _material, bounds, _entityCount, _materialPropertyBlock);
+            if(_entityCount != 0)
+                Graphics.DrawMeshInstancedProcedural(mesh, 0, _material, bounds, _entityCount, _materialPropertyBlock);
         }
 
         public void Dispose()
