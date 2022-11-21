@@ -16,7 +16,7 @@ namespace NSprites
     public partial class SpriteRenderingSystem : SystemBase
     {
         /// <summary><see cref="Mesh"/> We will use to render every sprite, which can be created once in system</summary>
-        private readonly Mesh _quad = NSpritesUtils.ConstructQuad();
+        private Mesh _quad = NSpritesUtils.ConstructQuad();
         /// <summary>Shader property's id to property data map</summary>
         private readonly Dictionary<int, PropertyInternalData> _propetyMap = new();
         /// <summary>All whenever registered render archetypes. Each registred archetype will be updated every frame no matter if there is any entities.</summary>
@@ -43,6 +43,10 @@ namespace NSprites
         }
         protected override void OnUpdate()
         {
+#if UNITY_EDITOR
+            if (!Application.isPlaying && _quad == null)
+                _quad = NSpritesUtils.ConstructQuad();
+#endif
             // update state to pass to render archetypes
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
             _state.lastSystemVersion = LastSystemVersion;
