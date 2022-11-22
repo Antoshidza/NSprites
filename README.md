@@ -4,6 +4,8 @@ This framework provides sprite rendering system compatible with Entities package
 
 Basically it sync whatever entity component you want with GPU data to perform instanced rendering. As a result all entities with same Material can be rendered with single DrawCall.
 
+<img src="https://user-images.githubusercontent.com/19982288/203323912-3f0aec5a-543d-4145-bf8f-42e07af2d124.gif" width="800"/>
+
 ## Basic API
 **For more detailed information please read [project's wiki](https://github.com/Antoshidza/NSprites/wiki).**
 ```csharp
