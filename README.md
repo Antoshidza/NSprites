@@ -66,6 +66,11 @@ Varyings UnlitVertex(Attributes attributes, uint instanceID : SV_InstanceID)
 ## How it works
 [`SpriteRenderingSystem`](https://github.com/Antoshidza/NSprites/blob/main/Rendering/Systems/SpriteRenderingSystem.cs) sync registered entity components with [ComputeBuffers](https://docs.unity3d.com/ScriptReference/ComputeBuffer.html) to send data to GPU and then renders entities with [`Graphics.DrawMeshInstancedProcedural`](https://docs.unity3d.com/ScriptReference/Graphics.DrawMeshInstancedProcedural.html). System also controls how ComputeBuffers reallocates if capacity exceeds. Sprites are simple entities with no limits of what components you use.
 
+## Check sample project - [Age of Sprites](https://github.com/Antoshidza/Age-of-Sprites)
+This sample project covers basics of rendering with NSprites. Use it to get a main idea of how stuff can be implemented but not as production-ready solutions.
+
+![RomeGIf](https://user-images.githubusercontent.com/19982288/204523105-7cabb122-954c-4fb0-97bc-becb27d2d2b9.gif)
+
 ## Installation
 ### Requirements
 * Unity 2020.3.x / 2021.3.x
