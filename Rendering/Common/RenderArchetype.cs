@@ -1003,6 +1003,8 @@ namespace NSprites
 
         public void Dispose()
         {
+            for (int propIndex = 0; propIndex < _properties.Length; propIndex++)
+                _properties[propIndex]._computeBuffer.Release();
             _handleCollector.Dispose();
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
             _createdChunksIndexes_RNL.Dispose();
