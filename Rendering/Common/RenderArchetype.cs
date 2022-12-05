@@ -1005,8 +1005,9 @@ namespace NSprites
         {
             for (int propIndex = 0; propIndex < _properties.Length; propIndex++)
                 _properties[propIndex]._computeBuffer.Release();
-            _handleCollector.Dispose();
+           _handleCollector.Dispose();
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
+            _pointersProperty._computeBuffer.Release();
             _createdChunksIndexes_RNL.Dispose();
             _reorderedChunksIndexes_RNL.Dispose();
 #endif
