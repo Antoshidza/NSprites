@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -201,14 +202,15 @@ namespace NSprites
     internal struct SyncPropertyByQueryJob<TProperty> : IJobChunk
             where TProperty : unmanaged
     {
+        [ReadOnly][DeallocateOnJobCompletion] public NativeArray<int> ñhunkBaseEntityIndices;
         // this should be filled every frame with GetDynamicComponentTypeHandle
         [ReadOnly]public DynamicComponentTypeHandle componentTypeHandle;
         public int typeSize;
         [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
-            WriteData(chunk, componentTypeHandle, firstEntityIndex, outputArray, typeSize);
+            WriteData(chunk, componentTypeHandle, ñhunkBaseEntityIndices[unfilteredChunkIndex], outputArray, typeSize);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void WriteData(in ArchetypeChunk chunk, in DynamicComponentTypeHandle componentTypeHandle, [NoAlias] in int startCopyToIndex, in NativeArray<TProperty> writeArray, [NoAlias] in int typeSize)
@@ -221,7 +223,7 @@ namespace NSprites
 #else
 #if UNITY_EDITOR
             if (!chunk.Has(componentTypeHandle))
-                throw new Exception($"You trying to render entities with property {nameof(TProperty)} but without component on them. Please add all required components to entity.");
+                throw new Exception($"You trying to render entities with property type {typeof(TProperty).Name} but without component on them. Please add all required components to entity.");
 #endif
             var data = chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(componentTypeHandle, typeSize);
 #endif
@@ -356,10 +358,11 @@ namespace NSprites
             var updatePropertyJob = new SyncPropertyByQueryJob<T>
             {
                 componentTypeHandle = componentTypeHandle,
+                ñhunkBaseEntityIndices = query.CalculateBaseEntityIndexArrayAsync(Allocator.TempJob, default, out var calculateChunkBaseIndices),
                 typeSize = TypeSize,
                 outputArray = GetBufferArray(writeCount)
             };
-            return updatePropertyJob.ScheduleParallelByRef(query, inputDeps);
+            return updatePropertyJob.ScheduleParallelByRef(query, JobHandle.CombineDependencies(inputDeps, calculateChunkBaseIndices));
         }
         private NativeArray<T> GetBufferArray(in int writeCount) => _computeBuffer.BeginWrite<T>(0, writeCount);
         public override void EndWrite(in int writeCount) => _computeBuffer.EndWrite<T>(writeCount);
