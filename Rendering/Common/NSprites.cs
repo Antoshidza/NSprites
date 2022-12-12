@@ -10,6 +10,22 @@ namespace NSprites
     public static class NSpritesUtils
     {
         #region add components methods
+        // TODO: uncomment after adding chunk component in baker become possible
+//        /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
+//        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+//        public static void AddSpriteRenderComponents<TAuthoringType>(this Baker<TAuthoringType> baker, in int renderID = default, in bool hasPointerComponents = true)
+//            where TAuthoringType : Component
+//        {
+//            baker.AddSharedComponent(new SpriteRenderID { id = renderID });
+
+//#if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
+//            if (hasPointerComponents)
+//            {
+//                baker.AddComponent(new PropertyPointer());
+//                // baker.AddChunkComponent(new PropertyPointerChunk());
+//            }
+//#endif
+//        }
         /// <summary>
         /// Adds all necessary components for rendering to entity:
         /// <br>* <see cref="SpriteRenderID"></see> (empty, should be seted on play)</br>
@@ -19,7 +35,7 @@ namespace NSprites
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AddSpriteRenderComponents(in Entity entity, in EntityManager entityManager, in int renderID = default, in bool hasPointerComponents = true)
         {
-            entityManager.AddSharedComponentData(entity, new SpriteRenderID { id = renderID });
+            entityManager.AddSharedComponent(entity, new SpriteRenderID { id = renderID });
 
 #if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
             if (hasPointerComponents)
@@ -30,15 +46,43 @@ namespace NSprites
 #endif
         }
         /// <summary>
-        /// Adds all necessary components for rendering to entity:
+        /// Adds all necessary components for rendering to query:
         /// <br>* <see cref="SpriteRenderID"></see> (empty, should be seted on play)</br>
         /// <br>* <see cref="PropertyPointer"></see> (empty, will automatically initialized by render system)</br>
         /// <br>* <see cref="PropertyPointerChunk"></see> to entity's chunk (empty, will automatically initialized by render system)</br>
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddSpriteRenderComponents(in EntityQuery query, in EntityManager entityManager, in int renderID = default, in bool hasPointerComponents = true)
+        {
+            entityManager.AddSharedComponent(query, new SpriteRenderID { id = renderID });
+
+#if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
+            if (hasPointerComponents)
+            {
+                entityManager.AddComponent<PropertyPointer>(query);
+                var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
+                // TODO: figure out why this requires checking
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    var entity = entities[i];
+                    if (!entityManager.HasChunkComponent<PropertyPointerChunk>(entity))
+                        entityManager.AddChunkComponentData<PropertyPointerChunk>(entity);
+                }
+                //entityManager.AddChunkComponentData(query, new PropertyPointerChunk());
+            }
+#endif
+        }
+        /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AddSpriteRenderComponents(this in EntityManager entityManager, in Entity entity, in int renderID = default, in bool hasPointerComponents = true)
         {
             AddSpriteRenderComponents(entity, entityManager, renderID, hasPointerComponents);
+        }
+        /// <summary><inheritdoc cref="AddSpriteRenderComponents(in EntityQuery, in EntityManager, in int, in bool)"/></summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddSpriteRenderComponents(this in EntityManager entityManager, in EntityQuery query, in int renderID = default, in bool hasPointerComponents = true)
+        {
+            AddSpriteRenderComponents(query, entityManager, renderID, hasPointerComponents);
         }
         #endregion
 
