@@ -1,6 +1,5 @@
 # NSprites - Unity DOTS Sprite Rendering Package
 This framework provides sprite rendering system compatible with Entities package (unity ECS).
-> Note: Currently supports only Entities v1.0.0-exp.12. Support for v1.0.0-pre.15 is the next development stage.
 
 Basically it sync whatever entity component you want with GPU data to perform instanced rendering. As a result all entities with same Material can be rendered with single drawcall.
 
@@ -73,8 +72,8 @@ This sample project covers basics of rendering with NSprites. Use it to get a ma
 
 ## Installation
 ### Requirements
-* Unity 2022.2.0b16
-* Entities v1.0.0-exp.12
+* Unity 2022.2.0f1
+* Entities v1.0.0-pre.15
 
 ### [Install via Package Manager](https://docs.unity3d.com/2021.3/Documentation/Manual/upm-ui-giturl.html)
 * Window -> Package Manager -> + button -> Add package from git url
