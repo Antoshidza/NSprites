@@ -5,7 +5,7 @@
   "description": "DOTS sprite rendering system. Uses GPU instancing with compute buffers to draw entities as sprites.",
   "unity": "2020.3",
   "dependencies": {
-    "com.unity.entities": "1.0.0-exp.12"
+    "com.unity.entities": "1.0.0-pre.15"
   },
   "author": {
     "name": "Anton Chernykh",
