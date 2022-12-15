@@ -137,7 +137,7 @@ namespace NSprites
             for (int chunkIndex = startIndex; chunkIndex < toIndex; chunkIndex++)
             {
                 var chunk = chunks[chunkIndex];
-                SyncPropertyByQueryJob<TProperty>.WriteData(chunk, componentTypeHandle, chunk.GetChunkComponentData(propertyPointerChunk_CTH).from, outputArray, typeSize);
+                SyncPropertyByQueryJob<TProperty>.WriteData(chunk, ref componentTypeHandle, chunk.GetChunkComponentData(ref propertyPointerChunk_CTH).from, outputArray, typeSize);
             }
         }
     }
@@ -162,10 +162,10 @@ namespace NSprites
                 var chunk = chunks[chunkIndex];
 
                 // if chunk has no data changes AND has no new / lost entities then do nothing
-                if (!chunk.DidChange(componentTypeHandle, lastSystemVersion) && !chunk.DidOrderChange(lastSystemVersion))
+                if (!chunk.DidChange(ref componentTypeHandle, lastSystemVersion) && !chunk.DidOrderChange(lastSystemVersion))
                     continue;
 
-                SyncPropertyByQueryJob<TProperty>.WriteData(chunk, componentTypeHandle, chunk.GetChunkComponentData(propertyPointerChunk_CTH).from, outputArray, typeSize);
+                SyncPropertyByQueryJob<TProperty>.WriteData(chunk, ref componentTypeHandle, chunk.GetChunkComponentData(ref propertyPointerChunk_CTH).from, outputArray, typeSize);
             }
         }
     }
@@ -190,7 +190,7 @@ namespace NSprites
             for (int i = startIndex; i < toIndex; i++)
             {
                 var chunk = chunks[chunkIndexes[i]];
-                SyncPropertyByQueryJob<TProperty>.WriteData(chunk, componentTypeHandle, chunk.GetChunkComponentData(propertyPointerChunk_CTH).from, outputArray, typeSize);
+                SyncPropertyByQueryJob<TProperty>.WriteData(chunk, ref componentTypeHandle, chunk.GetChunkComponentData(ref propertyPointerChunk_CTH).from, outputArray, typeSize);
             }
         }
     }
@@ -202,7 +202,7 @@ namespace NSprites
     internal struct SyncPropertyByQueryJob<TProperty> : IJobChunk
             where TProperty : unmanaged
     {
-        [ReadOnly][DeallocateOnJobCompletion] public NativeArray<int> ñhunkBaseEntityIndices;
+        [ReadOnly][DeallocateOnJobCompletion] public NativeArray<int> chunkBaseEntityIndices;
         // this should be filled every frame with GetDynamicComponentTypeHandle
         [ReadOnly]public DynamicComponentTypeHandle componentTypeHandle;
         public int typeSize;
@@ -210,22 +210,22 @@ namespace NSprites
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
-            WriteData(chunk, componentTypeHandle, ñhunkBaseEntityIndices[unfilteredChunkIndex], outputArray, typeSize);
+            WriteData(chunk, ref componentTypeHandle, chunkBaseEntityIndices[unfilteredChunkIndex], outputArray, typeSize);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void WriteData(in ArchetypeChunk chunk, in DynamicComponentTypeHandle componentTypeHandle, [NoAlias] in int startCopyToIndex, in NativeArray<TProperty> writeArray, [NoAlias] in int typeSize)
+        internal static void WriteData(in ArchetypeChunk chunk, ref DynamicComponentTypeHandle componentTypeHandle, [NoAlias] in int startCopyToIndex, in NativeArray<TProperty> writeArray, [NoAlias] in int typeSize)
         {
 #if NSPRITES_PROPERTY_FALLBACK_ENABLE
                 // check if chunk has no prop component then allocate default values
-                var data = chunk.Has(componentTypeHandle)
-                    ? chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(componentTypeHandle, typeSize)
+                var data = chunk.Has(ref componentTypeHandle)
+                    ? chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(ref componentTypeHandle, typeSize)
                     : new NativeArray<TProperty>(chunk.Count, Allocator.Temp);
 #else
 #if UNITY_EDITOR
-            if (!chunk.Has(componentTypeHandle))
+            if (!chunk.Has(ref componentTypeHandle))
                 throw new Exception($"You trying to render entities with property type {typeof(TProperty).Name} but without component on them. Please add all required components to entity.");
 #endif
-            var data = chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(componentTypeHandle, typeSize);
+            var data = chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(ref componentTypeHandle, typeSize);
 #endif
             NativeArray<TProperty>.Copy(data, 0, writeArray, startCopyToIndex, data.Length);
         }
@@ -358,7 +358,7 @@ namespace NSprites
             var updatePropertyJob = new SyncPropertyByQueryJob<T>
             {
                 componentTypeHandle = componentTypeHandle,
-                ñhunkBaseEntityIndices = query.CalculateBaseEntityIndexArrayAsync(Allocator.TempJob, default, out var calculateChunkBaseIndices),
+                chunkBaseEntityIndices = query.CalculateBaseEntityIndexArrayAsync(Allocator.TempJob, default, out var calculateChunkBaseIndices),
                 typeSize = TypeSize,
                 outputArray = GetBufferArray(writeCount)
             };
@@ -414,10 +414,10 @@ namespace NSprites
                     chunkCapacityCounter.Add(capacity);
                     entityCounter.Add(chunk.Count);
 #if UNITY_EDITOR
-                    if (!chunk.HasChunkComponent(propertyBufferIndexRange_CTH))
+                    if (!chunk.HasChunkComponent(ref propertyBufferIndexRange_CTH))
                         throw new Exception($"Render archetype has reactive properties, but chunk has no {nameof(PropertyPointerChunk)}");
 #endif
-                    var propertyBufferIndexRange = chunk.GetChunkComponentData(propertyBufferIndexRange_CTH);
+                    var propertyBufferIndexRange = chunk.GetChunkComponentData(ref propertyBufferIndexRange_CTH);
                     /// if <see cref="PropertyPointerChunk.count"/> (which is chunk's capacity) is 0 it means that chunk is newly created
                     if (propertyBufferIndexRange.count == 0)
                     {
@@ -445,7 +445,7 @@ namespace NSprites
                 {
                     var chunk = chunks[chunksIndexes[i]];
                     var capacity = chunk.Capacity;
-                    chunk.SetChunkComponentData(propertyPointerChunk_CTH, new PropertyPointerChunk { from = startingFromIndex, count = capacity });
+                    chunk.SetChunkComponentData(ref propertyPointerChunk_CTH, new PropertyPointerChunk { from = startingFromIndex, count = capacity });
                     startingFromIndex += capacity;
                 }
             }
@@ -464,8 +464,8 @@ namespace NSprites
                 for (int i = startIndex; i < toIndex; i++)
                 {
                     var chunk = chunks[chunkIndexes[i]];
-                    var chunkPointer = chunk.GetChunkComponentData(propertyPointerChunk_CTH_RO);
-                    var entityIndexes = chunk.GetNativeArray(propertyPointer_CTH_WO);
+                    var chunkPointer = chunk.GetChunkComponentData(ref propertyPointerChunk_CTH_RO);
+                    var entityIndexes = chunk.GetNativeArray(ref propertyPointer_CTH_WO);
                     for (int entityIndex = 0; entityIndex < entityIndexes.Length; entityIndex++)
                         entityIndexes[entityIndex] = new PropertyPointer { bufferIndex = chunkPointer.from + entityIndex };
                 }
@@ -484,7 +484,7 @@ namespace NSprites
                 {
                     var chunk = chunks[i];
                     var capacity = chunk.Capacity;
-                    chunk.SetChunkComponentData(propertyPointerChunk_CTH, new PropertyPointerChunk { from = index, count = capacity });
+                    chunk.SetChunkComponentData(ref propertyPointerChunk_CTH, new PropertyPointerChunk { from = index, count = capacity });
                     index += capacity;
                 }
             }
@@ -502,8 +502,8 @@ namespace NSprites
                 for (int chunkIndex = startIndex; chunkIndex < toIndex; chunkIndex++)
                 {
                     var chunk = chunks[chunkIndex];
-                    var chunkPointer = chunk.GetChunkComponentData(propertyPointerChunk_CTH);
-                    var entityIndexes = chunk.GetNativeArray(propertyPointer_CTH);
+                    var chunkPointer = chunk.GetChunkComponentData(ref propertyPointerChunk_CTH);
+                    var entityIndexes = chunk.GetNativeArray(ref propertyPointer_CTH);
                     for (int entityIndex = 0; entityIndex < entityIndexes.Length; entityIndex++)
                         entityIndexes[entityIndex] = new PropertyPointer { bufferIndex = chunkPointer.from + entityIndex };
                 }
@@ -666,7 +666,8 @@ namespace NSprites
             {
 #endif
 #region chunk gather data
-                chunksArray = query.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var gatherChunksHandle);
+                // TODO: try to avoid sync point
+                chunksArray = query.ToArchetypeChunkArray(Allocator.TempJob);
 
                 var overallCapacityCounter = new NativeCounter(Allocator.TempJob);
                 var createdChunksCapacityCounter = new NativeCounter(Allocator.TempJob);
@@ -687,7 +688,7 @@ namespace NSprites
                     newChunksIndexes = createdChunksIndexes.AsParallelWriter(),
                     reorderedChunksIndexes = reorderedChunksIndexes.AsParallelWriter(),
                     lastSystemVersion = systemState.lastSystemVersion
-                }.ScheduleBatch(chunksArray.Length, MinIndicesPerJobCount, gatherChunksHandle);
+                }.ScheduleBatch(chunksArray.Length, MinIndicesPerJobCount);
                 // we want to complete calculation job because next main thread logic depends on it
                 // since only we do is just counting some data we have no need to chain inputDeps here
                 calculateChunksDataHandle.Complete();
