@@ -1,4 +1,3 @@
-using System.Linq;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -25,7 +24,7 @@ namespace NSprites
                 _state = new SystemState
                 {
                     system = this,
-                    query = GetEntityQuery(GetDefaultComponentTypes())
+                    query = GetEntityQuery(NSpritesUtils.GetDefaultComponentTypes())
                 }
             };
             renderArchetypeStorage.Initialize();
@@ -70,18 +69,5 @@ namespace NSprites
             // combine handles from all render archetypes we have updated
             Dependency = JobHandle.CombineDependencies(renderArchetypeHandles);
         }
-
-#region support methods
-        /// <summary>Returns array with all default components for rendering entities including types marked with <see cref="DisableRenderingComponent"/> attribute</summary>
-        private NativeArray<ComponentType> GetDefaultComponentTypes(in Allocator allocator = Allocator.Temp)
-        {
-            var disableRenderingComponentTypes = new NativeArray<ComponentType>(DisableRenderingComponent.GetTypes().ToArray(), Allocator.Persistent);
-            var defaultComponents = new NativeArray<ComponentType>(disableRenderingComponentTypes.Length + 1, allocator);
-            NativeArray<ComponentType>.Copy(disableRenderingComponentTypes, 0, defaultComponents, 0, disableRenderingComponentTypes.Length);
-            defaultComponents[defaultComponents.Length - 1] = ComponentType.ReadOnly<SpriteRenderID>();
-            disableRenderingComponentTypes.Dispose();
-            return defaultComponents;
-        }
-#endregion
     }
 }

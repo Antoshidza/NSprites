@@ -4,6 +4,8 @@ using UnityEngine;
 using System.Reflection;
 using Unity.Entities;
 using System.Runtime.CompilerServices;
+using System.Linq;
+using Unity.Collections;
 
 namespace NSprites
 {
@@ -197,6 +199,18 @@ namespace NSprites
 #endif
 #endif
             return mode;
+        }
+
+        /// <summary>Returns array with all default components for rendering entities including types marked with <see cref="DisableRenderingComponent"/> attribute</summary>
+        /// [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static NativeArray<ComponentType> GetDefaultComponentTypes(in Allocator allocator = Allocator.Temp)
+        {
+            var disableRenderingComponentTypes = new NativeArray<ComponentType>(DisableRenderingComponent.GetTypes().ToArray(), Allocator.Temp);
+            var defaultComponents = new NativeArray<ComponentType>(disableRenderingComponentTypes.Length + 1, allocator);
+            NativeArray<ComponentType>.Copy(disableRenderingComponentTypes, 0, defaultComponents, 0, disableRenderingComponentTypes.Length);
+            defaultComponents[^1] = ComponentType.ReadOnly<SpriteRenderID>();
+            disableRenderingComponentTypes.Dispose();
+            return defaultComponents;
         }
     }
 }
