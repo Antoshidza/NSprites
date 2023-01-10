@@ -38,7 +38,7 @@ namespace NSprites
         }
         protected override void OnUpdate()
         {
-            var renderArchetypeStorage = EntityManager.GetComponentObject<RenderArchetypeStorage>(SystemHandle);
+            var renderArchetypeStorage = SystemAPI.ManagedAPI.GetComponent<RenderArchetypeStorage>(SystemHandle);
 #if UNITY_EDITOR
             if (!Application.isPlaying && renderArchetypeStorage._quad == null)
                 renderArchetypeStorage._quad = NSpritesUtils.ConstructQuad();
@@ -47,9 +47,9 @@ namespace NSprites
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
             var state = renderArchetypeStorage._state;
             state.lastSystemVersion = LastSystemVersion;
-            state.propertyPointer_CTH_RW = GetComponentTypeHandle<PropertyPointer>(false);
-            state.propertyPointerChunk_CTH_RW = GetComponentTypeHandle<PropertyPointerChunk>(false);
-            state.propertyPointerChunk_CTH_RO = GetComponentTypeHandle<PropertyPointerChunk>(true);
+            state.propertyPointer_CTH_RW = SystemAPI.GetComponentTypeHandle<PropertyPointer>(false);
+            state.propertyPointerChunk_CTH_RW = SystemAPI.GetComponentTypeHandle<PropertyPointerChunk>(false);
+            state.propertyPointerChunk_CTH_RO = SystemAPI.GetComponentTypeHandle<PropertyPointerChunk>(true);
 #endif
             state.inputDeps = Dependency;
 
