@@ -19,10 +19,11 @@ Basically it sync whatever entity component you want with GPU data to perform in
 [assembly: InstancedPropertyComponent(typeof(SpriteColor), "_color", PropertyFormat.Float4)]
 ```
 ```csharp
-// registrate render with ID, Material, capacity data and set of properties
-var renderSystem = World.GetSystem<SpriteRenderingSystem>();
+// registrate render with ID, Material, capacity data and set of proaperties
+if (!SystemAPI.ManagedAPI.TryGetSingleton<RenderArchetypeStorage>(out var renderArchetypeStorage))
+    return;
 // don't registrate same renderID
-renderSystem.RegisterRender
+renderArchetypeStorage.RegisterRender
 (
     renderID,
     material,   // material with [Enable GPU Instancing] enabled and shader supporting instancing
