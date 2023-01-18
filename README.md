@@ -19,7 +19,7 @@ Basically it sync whatever entity component you want with GPU data to perform in
 [assembly: InstancedPropertyComponent(typeof(SpriteColor), "_color", PropertyFormat.Float4)]
 ```
 ```csharp
-// registrate render with ID, Material, capacity data and set of proaperties
+// registrate render with ID, Material, capacity data and set of properties
 if (!SystemAPI.ManagedAPI.TryGetSingleton<RenderArchetypeStorage>(out var renderArchetypeStorage))
     return;
 // don't registrate same renderID
@@ -38,8 +38,8 @@ renderArchetypeStorage.RegisterRender
 // initialize sprite entity with all needed components for rendering
 entityManager.AddSpriteRenderComponents(spriteEntity, renderID);
 // WorldPosition2D and SpriteColor are example client's components
-entityManager.AddComponentData(new WorldPosition2D());          
-entityManager.AddComponentData(new SpriteColor(Color.White));
+entityManager.AddComponentData(spriteEntity, new WorldPosition2D());          
+entityManager.AddComponentData(spriteEntity, new SpriteColor(Color.White));
 ```
 Also shader you're using should be compatible with instancing. Check my [example shader gist](https://gist.github.com/Antoshidza/387bf4a3a3efd62c8ca4267e800ad3bc). The main idea is to use `StructuredBuffer<T> _propertyName`. Though it is possible to use instanced properties with ShaderGraph, so you may try your option. For local example shader main part can look like:
 ```hlsl
