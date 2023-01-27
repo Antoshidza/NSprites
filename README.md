@@ -73,7 +73,7 @@ This sample project covers basics of rendering with NSprites. Use it to get a ma
 
 ## Installation
 ### Requirements
-* Unity 2022.2.0f1
+* Unity 2022.2+
 * Entities v1.0.0-pre.15
 
 ### [Install via Package Manager](https://docs.unity3d.com/2021.3/Documentation/Manual/upm-ui-giturl.html)
