@@ -66,6 +66,9 @@ Varyings UnlitVertex(Attributes attributes, uint instanceID : SV_InstanceID)
 ## How it works
 [`SpriteRenderingSystem`](https://github.com/Antoshidza/NSprites/blob/main/Rendering/Systems/SpriteRenderingSystem.cs) sync registered entity components with [ComputeBuffers](https://docs.unity3d.com/ScriptReference/ComputeBuffer.html) to send data to GPU and then renders entities with [`Graphics.DrawMeshInstancedProcedural`](https://docs.unity3d.com/ScriptReference/Graphics.DrawMeshInstancedProcedural.html). System also controls how ComputeBuffers reallocates if capacity exceeds. Sprites are simple entities with no limits of what components you use.
 
+## Check [Foundation](https://github.com/Antoshidza/NSprites-Foundation)
+NSprites doesn't provide anything except rendering and managing data for it. Though you can implement anything you want on top of it. Also I want to share some foundation project where you can find examples and maybe even useful tools to work with this package. Foundation provides such things as sorting / culling / animation / 2D transforms / basic data authoring and registration.
+
 ## Check sample project - [Age of Sprites](https://github.com/Antoshidza/Age-of-Sprites)
 This sample project covers basics of rendering with NSprites. Use it to get a main idea of how stuff can be implemented but not as production-ready solutions.
 
