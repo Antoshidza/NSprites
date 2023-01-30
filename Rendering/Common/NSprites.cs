@@ -5,29 +5,74 @@ using System.Reflection;
 using Unity.Entities;
 using System.Runtime.CompilerServices;
 using System.Linq;
+using Unity.Burst;
 using Unity.Collections;
 
 namespace NSprites
 {
-    public static class NSpritesUtils
+    public static partial class NSpritesUtils
     {
         #region add components methods
-        // TODO: uncomment after adding chunk component in baker become possible
-//        /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
-//        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-//        public static void AddSpriteRenderComponents<TAuthoringType>(this Baker<TAuthoringType> baker, in int renderID = default, in bool hasPointerComponents = true)
-//            where TAuthoringType : Component
-//        {
-//            baker.AddSharedComponent(new SpriteRenderID { id = renderID });
+        [BurstCompile]
+        [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
+        private partial struct NSpritesHandleComponentCompositionBakingSystem : ISystem
+        {
+            private struct SystemData : IComponentData
+            {
+                public EntityQuery chunkComponentLessQuery;
+                public EntityQuery chunkComponentToRemoveQuery;
+            }
+            [BurstCompile]
+            public void OnCreate(ref SystemState state)
+            {
+                var queryBuilder = new EntityQueryBuilder(Allocator.Temp);
+                queryBuilder
+                    .WithAll<PropertyPointer>()
+                    .WithNoneChunkComponent<PropertyPointerChunk>()
+                    .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities);
+                var chunkComponentLessQuery = state.GetEntityQuery(queryBuilder);
+                
+                queryBuilder.Reset();
+                queryBuilder
+                    .WithAllChunkComponent<PropertyPointerChunk>()
+                    .WithNone<PropertyPointer>()
+                    .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities);
+                var chunkComponentToRemoveQuery = state.GetEntityQuery(queryBuilder);
+                
+                queryBuilder.Dispose();
+                
+                var systemData = new SystemData
+                {
+                    chunkComponentLessQuery = chunkComponentLessQuery,
+                    chunkComponentToRemoveQuery = chunkComponentToRemoveQuery
+                };
 
-//#if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
-//            if (hasPointerComponents)
-//            {
-//                baker.AddComponent(new PropertyPointer());
-//                // baker.AddChunkComponent(new PropertyPointerChunk());
-//            }
-//#endif
-//        }
+                state.EntityManager.AddComponentData(state.SystemHandle, systemData);
+            }
+            public void OnDestroy(ref SystemState state) { }
+            [BurstCompile]
+            public void OnUpdate(ref SystemState state)
+            {
+                var systemData = SystemAPI.GetComponent<SystemData>(state.SystemHandle);
+                
+                state.EntityManager.AddChunkComponentData(systemData.chunkComponentLessQuery, new PropertyPointerChunk());
+
+                state.EntityManager.RemoveChunkComponentData<PropertyPointerChunk>(systemData.chunkComponentToRemoveQuery);
+            }
+        }
+        
+        /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddSpriteRenderComponents<TAuthoringType>(this Baker<TAuthoringType> baker, in int renderID = default, in bool hasPointerComponents = true)
+            where TAuthoringType : Component
+        {
+            baker.AddSharedComponent(new SpriteRenderID { id = renderID });
+
+#if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
+            if (hasPointerComponents)
+                baker.AddComponent<PropertyPointer>();
+#endif
+        }
         /// <summary>
         /// Adds all necessary components for rendering to entity:
         /// <br>* <see cref="SpriteRenderID"></see> (empty, should be seted on play)</br>
@@ -49,7 +94,7 @@ namespace NSprites
         }
         /// <summary>
         /// Adds all necessary components for rendering to query:
-        /// <br>* <see cref="SpriteRenderID"></see> (empty, should be seted on play)</br>
+        /// <br>* <see cref="SpriteRenderID"></see> (empty, should be set on play)</br>
         /// <br>* <see cref="PropertyPointer"></see> (empty, will automatically initialized by render system)</br>
         /// <br>* <see cref="PropertyPointerChunk"></see> to entity's chunk (empty, will automatically initialized by render system)</br>
         /// </summary>
@@ -57,21 +102,9 @@ namespace NSprites
         public static void AddSpriteRenderComponents(in EntityQuery query, in EntityManager entityManager, in int renderID = default, in bool hasPointerComponents = true)
         {
             entityManager.AddSharedComponent(query, new SpriteRenderID { id = renderID });
-
 #if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
             if (hasPointerComponents)
-            {
                 entityManager.AddComponent<PropertyPointer>(query);
-                var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
-                // TODO: figure out why this requires checking
-                for (int i = 0; i < entities.Length; i++)
-                {
-                    var entity = entities[i];
-                    if (!entityManager.HasChunkComponent<PropertyPointerChunk>(entity))
-                        entityManager.AddChunkComponentData<PropertyPointerChunk>(entity);
-                }
-                //entityManager.AddChunkComponentData(query, new PropertyPointerChunk());
-            }
 #endif
         }
         /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
@@ -105,8 +138,8 @@ namespace NSprites
         /// </summary>
         public static Mesh ConstructQuad()
         {
-            var qaud = new Mesh();
-            qaud.vertices = new Vector3[4]
+            var quad = new Mesh();
+            quad.vertices = new Vector3[4]
             {
                 new Vector3(0f, 1f, 0f),    //left up
                 new Vector3(1f, 1f, 0f),    //right up
@@ -114,7 +147,7 @@ namespace NSprites
                 new Vector3(1f, 0f, 0f)     //right down
             };
 
-            qaud.triangles = new int[6]
+            quad.triangles = new int[6]
             {
                 // upper left triangle
                 0, 1, 2,
@@ -122,7 +155,7 @@ namespace NSprites
                 3, 2, 1
             };
 
-            qaud.normals = new Vector3[4]
+            quad.normals = new Vector3[4]
             {
                 -Vector3.forward,
                 -Vector3.forward,
@@ -130,7 +163,7 @@ namespace NSprites
                 -Vector3.forward
             };
 
-            qaud.uv = new Vector2[4]
+            quad.uv = new Vector2[4]
             {
                 new Vector2(0f, 1f),    //left up
                 new Vector2(1f, 1f),    //right up
@@ -138,7 +171,7 @@ namespace NSprites
                 new Vector2(1f, 0f)     //right down
             };
 
-            return qaud;
+            return quad;
         }
 
         /// <summary>
