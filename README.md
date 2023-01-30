@@ -38,8 +38,19 @@ renderArchetypeStorage.RegisterRender
 // initialize sprite entity with all needed components for rendering
 entityManager.AddSpriteRenderComponents(spriteEntity, renderID);
 // WorldPosition2D and SpriteColor are example client's components
-entityManager.AddComponentData(spriteEntity, new WorldPosition2D());          
-entityManager.AddComponentData(spriteEntity, new SpriteColor(Color.White));
+entityManager.AddComponentData(spriteEntity, new WorldPosition2D { Value = /*your value here*/ });          
+entityManager.AddComponentData(spriteEntity, new SpriteColor { Value = Color.White });
+
+// or from baker
+private class Baker : Baker<SpriteAuthoring>
+{
+    public override void Bake(SpriteAuthoring authoring)
+    {
+        AddComponent(new WorldPosition2D { Value = new float2(authoring.transform.position.x, authoring.transform.position.y) });
+        AddComponent(new SpriteColor { Value = Color.White });
+        this.AddSpriteComponents(authoring.RenderID); // Render ID is client defined unique per-render archetype int. You can define it manually or for example use Material's instance ID or whatever else.
+    }
+}
 ```
 Also shader you're using should be compatible with instancing. Check my [example shader gist](https://gist.github.com/Antoshidza/387bf4a3a3efd62c8ca4267e800ad3bc). The main idea is to use `StructuredBuffer<T> _propertyName`. Though it is possible to use instanced properties with ShaderGraph, so you may try your option. For local example shader main part can look like:
 ```hlsl
