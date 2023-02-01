@@ -245,5 +245,22 @@ namespace NSprites
             disableRenderingComponentTypes.Dispose();
             return defaultComponents;
         }
+#if UNITY_EDITOR
+        /// <summary>
+        /// Generate array of <see cref="InstancedProperty"/> and theirs <see cref="PropertyUpdateMode"/> of given <see cref="RenderArchetype"/>
+        /// </summary>
+        internal static (InstancedProperty, PropertyUpdateMode)[] GetPropertiesData(this RenderArchetype renderArchetype)
+        {
+            var array = new (InstancedProperty, PropertyUpdateMode)[renderArchetype._properties.Length];
+            for (var i = 0; i < renderArchetype.RP_Count; i++)
+                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype._properties[i], PropertyUpdateMode.Reactive);
+            for (var i = renderArchetype.SP_Offset; i < renderArchetype.SP_Offset + renderArchetype.SP_Count; i++)
+                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype._properties[i], PropertyUpdateMode.Static);
+            for (var i = renderArchetype.EUP_Offset; i < renderArchetype.EUP_Offset + renderArchetype.EUP_Count; i++)
+                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype._properties[i], PropertyUpdateMode.EachUpdate);
+
+            return array;
+        }
+#endif
     }
 }

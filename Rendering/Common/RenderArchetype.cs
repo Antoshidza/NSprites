@@ -24,6 +24,7 @@ namespace NSprites
             this.propertyID = propertyID;
             this.updateMode = NSpritesUtils.GetActualMode(updateMode);
         }
+
         public PropertyData(in string propertyName, in PropertyUpdateMode updateMode = default)
             : this(Shader.PropertyToID(propertyName), updateMode) { }
 
@@ -238,7 +239,7 @@ namespace NSprites
     internal abstract class InstancedProperty
     {
         /// property id from <see cref="Shader.PropertyToID"> to be able to pass to <see cref="MaterialPropertyBlock">
-        protected int _propertyID;
+        internal int _propertyID;
         /// buffer which synced with entities components data
         internal ComputeBuffer _computeBuffer;
         /// cached component type + system to retrieve <see cref="DynamicComponentTypeHandle">
@@ -513,7 +514,7 @@ namespace NSprites
         /// id to query entities using <see cref="SpriteRenderID"/>
         internal readonly int _id;
 
-        private readonly Material _material;
+        internal readonly Material _material;
         private readonly MaterialPropertyBlock _materialPropertyBlock;
 
         // minimum additional capacity we want allocate on exceed
@@ -529,7 +530,7 @@ namespace NSprites
         ///     <see cref="PropertyUpdateMode.Static"/> /
         ///     <see cref="PropertyUpdateMode.EachUpdate"/>
         /// </summary>
-        private readonly InstancedProperty[] _properties;
+        internal readonly InstancedProperty[] _properties;
         /// used to collect property <see cref="JobHandle"/> during data sync.
         private PropertyHandleCollector _handleCollector;
         /// <summary> Contains count of properties for each <see cref="PropertyUpdateMode"/>. c0 - counts, c1 - offsets</summary>
@@ -545,31 +546,31 @@ namespace NSprites
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
         private readonly bool _shouldHandlePropertiesByEntity;
 #endif
-        private int EUP_Count => _propertiesModeCountAndOffsets.c0.y;
-        private int EUP_Offset => _propertiesModeCountAndOffsets.c1.y;
+        internal int EUP_Count => _propertiesModeCountAndOffsets.c0.y;
+        internal int EUP_Offset => _propertiesModeCountAndOffsets.c1.y;
 #endif
 
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
         /// each-update property for <see cref="PropertyPointer"/> data. Have this separately from <see cref="_properties"/> to not pass unecessary handles to each-update properties + let them be disableable
-        private readonly InstancedProperty _pointersProperty;
+        internal readonly InstancedProperty _pointersProperty;
         /// should archetype work with <see cref="PropertyUpdateMode.Reactive"/> or <see cref="PropertyUpdateMode.Static"/>
 #if !NSPRITES_EACH_UPDATE_DISABLE
         /// because such update require working with <see cref="PropertyPointerChunk"/> and <see cref="PropertyPointer"/> data
         private readonly bool _shouldHandlePropertiesByChunk;
 #endif
         /// <summary> Contains how much space <b>allocated / used / can be used</b> in <see cref="PropertyUpdateMode.Reactive"/> and <see cref="PropertyUpdateMode.Static"/> properties, because both use chunk iteration</summary>
-        private PropertySpaceCounter _perChunkPropertiesSpaceCounter;
+        internal PropertySpaceCounter _perChunkPropertiesSpaceCounter;
         private ReusableNativeList<int> _createdChunksIndexes_RNL;
         private ReusableNativeList<int> _reorderedChunksIndexes_RNL;
         internal const int MinIndicesPerJobCount = 8;
 #endif
 #if !NSPRITES_STATIC_DISABLE
-        private int SP_Count => _propertiesModeCountAndOffsets.c0.z;
-        private int SP_Offset => _propertiesModeCountAndOffsets.c1.z;
+        internal int SP_Count => _propertiesModeCountAndOffsets.c0.z;
+        internal int SP_Offset => _propertiesModeCountAndOffsets.c1.z;
 #endif
 #if !NSPRITES_REACTIVE_DISABLE
         /// <see cref="PropertyUpdateMode.Reactive"/> properties from index is always 0, so there is no RP_Offset
-        private int RP_Count => _propertiesModeCountAndOffsets.c0.x;
+        internal int RP_Count => _propertiesModeCountAndOffsets.c0.x;
 #endif
 
         public RenderArchetype(Material material, PropertyData[] propertyDataSet, Dictionary<int, PropertyInternalData> propertyMap, in int id, MaterialPropertyBlock overrideMPB = null, in int preallocatedSpace = 1, in int minCapacityStep = 1)
