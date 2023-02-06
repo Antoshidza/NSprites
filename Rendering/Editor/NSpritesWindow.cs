@@ -87,10 +87,17 @@ namespace NSprites
 
         private void UpdateNSpritesData()
         {
+            var scrollView =  rootVisualElement.Q<ScrollView>("RootScrollView");
+            if (scrollView == null)
+            {
+                scrollView = new ScrollView { name = "RootScrollView" };
+                rootVisualElement.Add(scrollView);
+            }
+
             var worlds = World.All;
-            TruncateWorlds(worlds, rootVisualElement);
+            TruncateWorlds(worlds, scrollView);
             for (var i = 0; i < worlds.Count; i++)
-                UpdateWorld(worlds[i], rootVisualElement);
+                UpdateWorld(worlds[i], scrollView);
         }
 
         private void TruncateWorlds(in World.NoAllocReadOnlyCollection<World> worlds, VisualElement root)
