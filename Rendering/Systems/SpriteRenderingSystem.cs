@@ -6,7 +6,7 @@ using UnityEngine;
 namespace NSprites
 {
     /// <summary>
-    /// Renders entities (both in runtime and editor) with <see cref="SpriteRenderID"/> : <see cref="ISharedComponentData"/> as 2D sprites depending on registered data through <see cref="RegisterRender"/>
+    /// Renders entities (both in runtime and editor) with <see cref="SpriteRenderID"/> : <see cref="ISharedComponentData"/> as 2D sprites depending on registered data through <see cref="RenderArchetypeStorage.RegisterRender"/>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
@@ -17,7 +17,7 @@ namespace NSprites
 #if NSPRITES_REACTIVE_DISABLE && NSPRITES_STATIC_DISABLE && NSPRITES_EACH_UPDATE_DISABLE
             throw new Exception($"You can't disable Reactive, Static and Each-Update properties modes at the same time, there should be at least one mode if you want system to work. Please, enable at least one mode.");
 #endif
-            // instansiate and initialize system data
+            // instantiate and initialize system data
             var renderArchetypeStorage = new RenderArchetypeStorage{ SystemData = new SystemData { query = state.GetEntityQuery(NSpritesUtils.GetDefaultComponentTypes()) }};
             renderArchetypeStorage.Initialize();
             state.EntityManager.AddComponentObject(state.SystemHandle, renderArchetypeStorage);
@@ -47,11 +47,11 @@ namespace NSprites
 
             // schedule render archetype's properties data update
             var renderArchetypeHandles = new NativeArray<JobHandle>(renderArchetypeStorage.RenderArchetypes.Count, Allocator.Temp);
-            for (int archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
+            for (var archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
                 renderArchetypeHandles[archetypeIndex] = renderArchetypeStorage.RenderArchetypes[archetypeIndex].ScheduleUpdate(systemData, ref state);
 
             // force complete properties data update and draw archetypes
-            for (int archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
+            for (var archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
             {
                 var archetype = renderArchetypeStorage.RenderArchetypes[archetypeIndex];
                 archetype.CompleteUpdate();

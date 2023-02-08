@@ -610,7 +610,7 @@ namespace NSprites
                 var propData = propertyDataSet[propIndex];
 #if UNITY_EDITOR
                 if (!propertyMap.ContainsKey(propData.propertyID))
-                    throw new ArgumentException($"There is no data in map for {material.shader.GetPropertyNameId(propData.propertyID)} shader's property ID");
+                    throw new ArgumentException($"There is no data in map for {propData.propertyID} shader's property ID. You can look at Window -> Entities -> NSprites to see what properties registered at a time.");
 #endif
                 var propInternalData = propertyMap[propData.propertyID];
                 propertiesInternalDataSet[propIndex] = propInternalData;
