@@ -15,7 +15,7 @@ namespace NSprites
         public void OnCreate(ref SystemState state)
         {
 #if NSPRITES_REACTIVE_DISABLE && NSPRITES_STATIC_DISABLE && NSPRITES_EACH_UPDATE_DISABLE
-            throw new Exception($"You can't disable Reactive, Static and Each-Update properties modes at the same time, there should be at least one mode if you want system to work. Please, enable at least one mode.");
+            throw new NSpritesException($"You can't disable {nameof(PropertyUpdateMode.Reactive)}, {nameof(PropertyUpdateMode.Static)} and {nameof(PropertyUpdateMode.EachUpdate)} properties modes at the same time, there should be at least one mode if you want system to work. Please, enable at least one mode.");
 #endif
             // instantiate and initialize system data
             var renderArchetypeStorage = new RenderArchetypeStorage{ SystemData = new SystemData { query = state.GetEntityQuery(NSpritesUtils.GetDefaultComponentTypes()) }};
@@ -52,11 +52,7 @@ namespace NSprites
 
             // force complete properties data update and draw archetypes
             for (var archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
-            {
-                var archetype = renderArchetypeStorage.RenderArchetypes[archetypeIndex];
-                archetype.CompleteUpdate();
-                archetype.Draw(renderArchetypeStorage.Quad, new Bounds(new Vector3(0f, 0f, archetypeIndex), Vector3.one * 1000f));
-            }
+                renderArchetypeStorage.RenderArchetypes[archetypeIndex].CompleteAndDraw();
 
             // combine handles from all render archetypes we have updated
             state.Dependency = JobHandle.CombineDependencies(renderArchetypeHandles);

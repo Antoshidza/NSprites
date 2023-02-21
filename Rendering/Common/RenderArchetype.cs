@@ -115,8 +115,8 @@ namespace NSprites
     #endregion
 
     #region property jobs
-    // TPropety supposed to be: int/int2/int3/int4/int2x2/int3x3/int4x4/float/float2/float3/float4/float2x2/float3x3/float4x4
-    // matricies types are only square because HLSL supports only such, so there is no need to support any other NxM types
+    // TProperty supposed to be: int/int2/int3/int4/int2x2/int3x3/int4x4/float/float2/float3/float4/float2x2/float3x3/float4x4
+    // matrices types are only square because HLSL supports only such, so there is no need to support any other NxM types
     #region reactive / static properties jobs
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
     [BurstCompile]
@@ -223,7 +223,7 @@ namespace NSprites
 #else
 #if UNITY_EDITOR
             if (!chunk.Has(ref componentTypeHandle))
-                throw new Exception($"You trying to render entities with property type {typeof(TProperty).Name} but without component on them. Please add all required components to entity.");
+                throw new NSpritesException($"You trying to render entities with property type {nameof(TProperty)} but without component on them. Please add all required components to entity.");
 #endif
             var data = chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(ref componentTypeHandle, typeSize);
 #endif
@@ -297,7 +297,7 @@ namespace NSprites
                 PropertyFormat.Int2x2 => new InstancedProperty<int2x2>(),
                 PropertyFormat.Int3x3 => new InstancedProperty<int3x3>(),
                 PropertyFormat.Int4x4 => new InstancedProperty<int4x4>(),
-                _ => throw new NotImplementedException($"There is no handle for {format}"),
+                _ => throw new NSpritesException($"There is no handle for {format}"),
             };
         }
     }
@@ -397,7 +397,7 @@ namespace NSprites
             [ReadOnly][NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<PropertyPointerChunk> propertyBufferIndexRange_CTH;
             // don't worry about created/reordered chunks indexes list
             // if there is no new chunks, then there will no work with this list (it is intended to be persistent and resized on need)
-            // else we already want to fill this lists, because otherwise it means more uneccessary work, we want to avoid extra chunk iteration
+            // else we already want to fill this lists, because otherwise it means more unnecessary work, we want to avoid extra chunk iteration
             /// used by <see cref="PinListedChunksJob"/> and <see cref="PinListedEntitiesJob"/>
             [WriteOnly][NoAlias] public NativeList<int>.ParallelWriter newChunksIndexes;
             /// used by <see cref="PinListedEntitiesJob"/>
@@ -415,7 +415,7 @@ namespace NSprites
                     entityCounter.Add(chunk.Count);
 #if UNITY_EDITOR
                     if (!chunk.HasChunkComponent(ref propertyBufferIndexRange_CTH))
-                        throw new Exception($"Render archetype has reactive properties, but chunk has no {nameof(PropertyPointerChunk)}");
+                        throw new NSpritesException($"{nameof(RenderArchetype)} has {nameof(PropertyUpdateMode.Reactive)} properties, but chunk has no {nameof(PropertyPointerChunk)}");
 #endif
                     var propertyBufferIndexRange = chunk.GetChunkComponentData(ref propertyBufferIndexRange_CTH);
                     /// if <see cref="PropertyPointerChunk.count"/> (which is chunk's capacity) is 0 it means that chunk is newly created
@@ -515,6 +515,8 @@ namespace NSprites
         internal readonly int _id;
 
         internal readonly Material _material;
+        internal readonly Mesh _mesh;
+        internal readonly Bounds _bounds;
         private readonly MaterialPropertyBlock _materialPropertyBlock;
 
         // minimum additional capacity we want allocate on exceed
@@ -551,7 +553,7 @@ namespace NSprites
 #endif
 
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
-        /// each-update property for <see cref="PropertyPointer"/> data. Have this separately from <see cref="_properties"/> to not pass unecessary handles to each-update properties + let them be disableable
+        /// each-update property for <see cref="PropertyPointer"/> data. Have this separately from <see cref="_properties"/> to not pass unnecessary handles to each-update properties + let them be disableable
         internal readonly InstancedProperty _pointersProperty;
         /// should archetype work with <see cref="PropertyUpdateMode.Reactive"/> or <see cref="PropertyUpdateMode.Static"/>
 #if !NSPRITES_EACH_UPDATE_DISABLE
@@ -573,20 +575,24 @@ namespace NSprites
         internal int RP_Count => _propertiesModeCountAndOffsets.c0.x;
 #endif
 
-        public RenderArchetype(Material material, PropertyData[] propertyDataSet, Dictionary<int, PropertyInternalData> propertyMap, in int id, MaterialPropertyBlock overrideMPB = null, in int preallocatedSpace = 1, in int minCapacityStep = 1)
+        public RenderArchetype(Material material, Mesh mesh, in Bounds bounds, IReadOnlyList<PropertyData> propertyDataSet
+            , IReadOnlyDictionary<int, PropertyInternalData> propertyMap, int id
+            , MaterialPropertyBlock overrideMPB = null, int preallocatedSpace = 1, int minCapacityStep = 1)
         {
 #if UNITY_EDITOR
             if (material == null)
-                throw new ArgumentException($"While creating render archetype (id: {id}) material was null passed");
+                throw new NSpritesException($"While creating {nameof(RenderArchetype)} ({nameof(id)}: {id}) {nameof(Material)} {nameof(material)} was null passed");
             if (propertyDataSet == null)
-                throw new ArgumentException($"While creating render archetype (id: {id}) property data set was null passed");
+                throw new NSpritesException($"While creating {nameof(RenderArchetype)} ({nameof(id)}: {id}) {nameof(IReadOnlyList<PropertyData>)} {nameof(propertyDataSet)} was null passed");
             if (preallocatedSpace < 1)
-                throw new ArgumentException($"You're trying to create render archetype (id: {id}) with {preallocatedSpace} initial capacity, which can't be below 1");
+                throw new NSpritesException($"You're trying to create {nameof(RenderArchetype)} ({nameof(id)}: {id}) with {preallocatedSpace} initial capacity, which can't be below 1");
             if (minCapacityStep < 1)
-                throw new ArgumentException($"You're trying to create render archetype (id: {id}) with {minCapacityStep} minimum capacity step, which can't be below 1");
+                throw new NSpritesException($"You're trying to create {nameof(RenderArchetype)} ({nameof(id)}: {id}) with {minCapacityStep} minimum capacity step, which can't be below 1");
 #endif
             _id = id;
             _material = material;
+            _mesh = mesh;
+            _bounds = bounds;
             _materialPropertyBlock = overrideMPB ?? new();
             _minCapacityStep = minCapacityStep;
 
@@ -594,7 +600,7 @@ namespace NSprites
             _perChunkPropertiesSpaceCounter.capacity = preallocatedSpace;
             _createdChunksIndexes_RNL = new ReusableNativeList<int>(0, Allocator.Persistent);
             _reorderedChunksIndexes_RNL = new ReusableNativeList<int>(0, Allocator.Persistent);
-            _pointersProperty = (InstancedProperty)PropertyFormat.Int;
+            _pointersProperty = PropertyFormat.Int;
             _pointersProperty.Initialize(Shader.PropertyToID(PropertyPointer.PropertyName), preallocatedSpace, sizeof(int), ComponentType.ReadOnly<PropertyPointer>());
 #endif
 #if !NSPRITES_EACH_UPDATE_DISABLE
@@ -602,7 +608,7 @@ namespace NSprites
 #endif
 
             #region initialize properties
-            _properties = new InstancedProperty[propertyDataSet.Length];
+            _properties = new InstancedProperty[propertyDataSet.Count];
             var propertiesInternalDataSet = new NativeArray<PropertyInternalData>(_properties.Length, Allocator.Temp);
             /// 1st iteration fetch property data from map and count all types of <see cref="PropertyUpdateMode">
             for (int propIndex = 0; propIndex < _properties.Length; propIndex++)
@@ -610,7 +616,7 @@ namespace NSprites
                 var propData = propertyDataSet[propIndex];
 #if UNITY_EDITOR
                 if (!propertyMap.ContainsKey(propData.propertyID))
-                    throw new ArgumentException($"There is no data in map for {propData.propertyID} shader's property ID. You can look at Window -> Entities -> NSprites to see what properties registered at a time.");
+                    throw new NSpritesException($"There is no data in map for {propData.propertyID} shader's property ID. You can look at Window -> Entities -> NSprites to see what properties registered at a time.");
 #endif
                 var propInternalData = propertyMap[propData.propertyID];
                 propertiesInternalDataSet[propIndex] = propInternalData;
@@ -886,9 +892,9 @@ namespace NSprites
                     ScheduleLoadAllQueryData(_pointersProperty, _handleCollector.propertyPointerIndex, systemState.GetDynamicComponentTypeHandle(_pointersProperty.ComponentType), query, preReadDependency);
 #endif
                 }
-#endregion
+                #endregion
 
-#region dispose containers
+                #region dispose containers
                 overallCapacityCounter.Dispose();
                 createdChunksCapacityCounter.Dispose();
                 entityCounter.Dispose();
@@ -953,7 +959,7 @@ namespace NSprites
             _handleCollector.Add(property.LoadAllQueryData(query, property_DCTH, _entityCount, inputDeps), propIndex);
         }
         /// <summary>Forces complete all properties update jobs. Call it after <see cref="ScheduleUpdate"/> and before <see cref="Draw"/> method to ensure all data is updated.</summary>
-        public void CompleteUpdate()
+        private void CompleteUpdate()
         {
 #if !NSPRITES_REACTIVE_DISABLE
             /// complete <see cref="PropertyUpdateMode.Reactive"/> properties
@@ -988,17 +994,25 @@ namespace NSprites
 #endif
         }
         /// <summary>Draws instances in quantity based on the number of entities related to this <see cref="RenderArchetype"/>. Call it after <see cref="ScheduleUpdate"/> and <see cref="CompleteUpdate"/>.</summary>
-        public void Draw(Mesh mesh, in Bounds bounds)
+        private void Draw()
         {
             if(_entityCount != 0)
-                Graphics.DrawMeshInstancedProcedural(mesh, 0, _material, bounds, _entityCount, _materialPropertyBlock);
+                Graphics.DrawMeshInstancedProcedural(_mesh, 0, _material, _bounds, _entityCount, _materialPropertyBlock);
+        }
+        
+        /// <summary><inheritdoc cref="CompleteUpdate"/>.
+        /// Then <inheritdoc cref="Draw"/>.</summary>
+        public void CompleteAndDraw()
+        {
+            CompleteUpdate();
+            Draw();
         }
 
         public void Dispose()
         {
-            for (int propIndex = 0; propIndex < _properties.Length; propIndex++)
+            for (var propIndex = 0; propIndex < _properties.Length; propIndex++)
                 _properties[propIndex]._computeBuffer.Release();
-           _handleCollector.Dispose();
+            _handleCollector.Dispose();
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
             _pointersProperty._computeBuffer.Release();
             _createdChunksIndexes_RNL.Dispose();

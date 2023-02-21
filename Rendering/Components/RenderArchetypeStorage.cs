@@ -15,6 +15,8 @@ namespace NSprites
         internal readonly List<RenderArchetype> RenderArchetypes = new();
         /// <summary>System's state with all necessary data to pass to <see cref="RenderArchetype"/> to update</summary>
         internal SystemData SystemData;
+        
+        internal static Bounds DefaultBounds => new (Vector3.zero, Vector3.one * 1000f);
 
         internal void Dispose()
         {
@@ -61,14 +63,27 @@ namespace NSprites
         /// Every entity with <see cref="SpriteRenderID"/> component with ID value equal to passed ID, will be rendered by registered render.
         /// Entity without instanced property component from passed properties will be rendered with uninitialized values (please, initialize entities carefully, because render with uninitialized values can lead to strange visual results).
         /// Though you can use <b><see cref="NSPRITES_PROPERTY_FALLBACK_ENABLE"/></b> directive to enable fallback values, so any chunk without property component will pass default values.
-        /// </summary>
-        /// <param name="id">ID of <see cref="SpriteRenderID.id"/>. All entities with the same SCD will be updated by registering render archetype. Client should manage uniqueness (or not) of ids by himself.</param>
+        /// <param name="id">ID of <see cref="SpriteRenderID"/>.<see cref="SpriteRenderID.id"/>. All entities with the same SCD will be updated by registering render archetype. Client should manage uniqueness (or not) of ids by himself.</param>
         /// <param name="material"><see cref="Material"/> which will be used to render sprites.</param>
         /// <param name="materialPropertyBlock"><see cref="MaterialPropertyBlock"/> you can pass if you want to do some extra overriding by yourself.</param>
         /// <param name="propertyDataSet">IDs of StructuredBuffer properties in shader AND <see cref="PropertyUpdateMode"/> for each property.</param>
         /// <param name="initialCapacity">compute buffers initial capacity.</param>
         /// <param name="capacityStep">compute buffers capacity increase step when the current limit on the number of entities is exceeded.</param>
-        public void RegisterRender(in int id, Material material, MaterialPropertyBlock materialPropertyBlock = null, in int initialCapacity = 1, in int capacityStep = 1, params PropertyData[] propertyDataSet)
-            => RenderArchetypes.Add(new RenderArchetype(material, propertyDataSet, PropertyMap, id, materialPropertyBlock, initialCapacity, capacityStep));
+        /// </summary>
+        public void RegisterRender(int id, Material material, MaterialPropertyBlock materialPropertyBlock = null, int initialCapacity = 1, int capacityStep = 1, params PropertyData[] propertyDataSet)
+            => RegisterRender(id, material, Quad, DefaultBounds, materialPropertyBlock, initialCapacity, capacityStep, propertyDataSet);
+        
+        /// <summary><inheritdoc cref="RegisterRender(int,UnityEngine.Material,UnityEngine.MaterialPropertyBlock,int,int,NSprites.PropertyData[])"/>
+        /// <param name="bounds">render bounds.</param>
+        /// </summary>
+        public void RegisterRender(int id, Material material, in Bounds bounds, MaterialPropertyBlock materialPropertyBlock = null, int initialCapacity = 1, int capacityStep = 1, params PropertyData[] propertyDataSet)
+            => RegisterRender(id, material, Quad, bounds, materialPropertyBlock, initialCapacity, capacityStep, propertyDataSet);
+        
+        /// <summary><inheritdoc cref="RegisterRender(int,UnityEngine.Material,UnityEngine.MaterialPropertyBlock,int,int,NSprites.PropertyData[])"/>
+        /// <param name="mesh"><see cref="Mesh"/> which will be used to render sprites.</param>
+        /// <param name="bounds">render bounds.</param>
+        /// </summary>
+        public void RegisterRender(int id, Material material, Mesh mesh, in Bounds bounds, MaterialPropertyBlock materialPropertyBlock = null, int initialCapacity = 1, int capacityStep = 1, params PropertyData[] propertyDataSet)
+            => RenderArchetypes.Add(new RenderArchetype(material, mesh, bounds, propertyDataSet, PropertyMap, id, materialPropertyBlock, initialCapacity, capacityStep));
     }
 }
