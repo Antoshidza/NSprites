@@ -207,8 +207,8 @@ namespace NSprites
                     : new NativeArray<byte>(chunk.Count * typeSize, Allocator.Temp, NativeArrayOptions.ClearMemory);
 #else
 #if UNITY_EDITOR
-            // if (!chunk.Has(ref componentTypeHandle))
-            //     throw new NSpritesException($"You trying to render entities with property type {nameof(TProperty)} but without component on them. Please add all required components to entity.");
+            if (!chunk.Has(ref componentTypeHandle))
+                throw new NSpritesException($"You trying to render entities but it missed one of the required component.");
 #endif
             var data = chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref componentTypeHandle, typeSize);
 #endif
