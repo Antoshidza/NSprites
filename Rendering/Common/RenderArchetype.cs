@@ -121,15 +121,14 @@ namespace NSprites
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
     [BurstCompile]
     /// job will take all chunks, read theirs <see cref="PropertyPointerChunk"/> and copy component data to compute buffer starting from chunk's range from value
-    internal struct SyncPropertyByChunkJob<TProperty> : IJobParallelForBatch
-        where TProperty : unmanaged
+    internal struct SyncPropertyByChunkJob : IJobParallelForBatch
     {
         [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
         // this should be filled every frame with GetDynamicComponentTypeHandle
         [ReadOnly] public DynamicComponentTypeHandle componentTypeHandle;
         [ReadOnly] public int typeSize;
         [ReadOnly] public ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH;
-        [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
+        [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<byte> outputArray;
 
         public void Execute(int startIndex, int count)
         {
@@ -137,14 +136,13 @@ namespace NSprites
             for (int chunkIndex = startIndex; chunkIndex < toIndex; chunkIndex++)
             {
                 var chunk = chunks[chunkIndex];
-                SyncPropertyByQueryJob<TProperty>.WriteData(chunk, ref componentTypeHandle, chunk.GetChunkComponentData(ref propertyPointerChunk_CTH).from, outputArray, typeSize);
+                SyncPropertyByQueryJob.WriteData(chunk, ref componentTypeHandle, chunk.GetChunkComponentData(ref propertyPointerChunk_CTH).from, outputArray, typeSize);
             }
         }
     }
     [BurstCompile]
     /// job will take chunks with <see cref="ArchetypeChunk.DidOrderChange"/> OR <see cref="ArchetypeChunk.DidChange">, read theirs <see cref="PropertyPointerChunk"/> and copy component data to compute buffer starting from chunk's range from value
-    internal struct SyncPropertyByChangedChunkJob<TProperty> : IJobParallelForBatch
-        where TProperty : unmanaged
+    internal struct SyncPropertyByChangedChunkJob : IJobParallelForBatch
     {
         [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
         // this should be filled every frame with GetDynamicComponentTypeHandle
@@ -152,7 +150,7 @@ namespace NSprites
         [ReadOnly] public uint lastSystemVersion;
         [ReadOnly] public int typeSize;
         [ReadOnly] public ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH;
-        [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
+        [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<byte> outputArray;
 
         public void Execute(int startIndex, int count)
         {
@@ -165,7 +163,7 @@ namespace NSprites
                 if (!chunk.DidChange(ref componentTypeHandle, lastSystemVersion) && !chunk.DidOrderChange(lastSystemVersion))
                     continue;
 
-                SyncPropertyByQueryJob<TProperty>.WriteData(chunk, ref componentTypeHandle, chunk.GetChunkComponentData(ref propertyPointerChunk_CTH).from, outputArray, typeSize);
+                SyncPropertyByQueryJob.WriteData(chunk, ref componentTypeHandle, chunk.GetChunkComponentData(ref propertyPointerChunk_CTH).from, outputArray, typeSize);
             }
         }
     }
@@ -173,8 +171,7 @@ namespace NSprites
 #if !NSPRITES_STATIC_DISABLE
     [BurstCompile]
     /// job will take listed chunks, read theirs <see cref="PropertyPointerChunk"/> and copy component data to compute buffer starting from chunk's range from value
-    internal struct SyncPropertyByListedChunkJob<TProperty> : IJobParallelForBatch
-        where TProperty : unmanaged
+    internal struct SyncPropertyByListedChunkJob : IJobParallelForBatch
     {
         [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
         [ReadOnly] public NativeList<int> chunkIndexes;
@@ -182,7 +179,7 @@ namespace NSprites
         [ReadOnly] public DynamicComponentTypeHandle componentTypeHandle;
         [ReadOnly] public int typeSize;
         [ReadOnly] public ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH;
-        [WriteOnly][NativeDisableParallelForRestriction][NativeDisableContainerSafetyRestriction] public NativeArray<TProperty> outputArray;
+        [WriteOnly][NativeDisableParallelForRestriction][NativeDisableContainerSafetyRestriction] public NativeArray<byte> outputArray;
 
         public void Execute(int startIndex, int count)
         {
@@ -190,7 +187,7 @@ namespace NSprites
             for (int i = startIndex; i < toIndex; i++)
             {
                 var chunk = chunks[chunkIndexes[i]];
-                SyncPropertyByQueryJob<TProperty>.WriteData(chunk, ref componentTypeHandle, chunk.GetChunkComponentData(ref propertyPointerChunk_CTH).from, outputArray, typeSize);
+                SyncPropertyByQueryJob.WriteData(chunk, ref componentTypeHandle, chunk.GetChunkComponentData(ref propertyPointerChunk_CTH).from, outputArray, typeSize);
             }
         }
     }
@@ -199,35 +196,35 @@ namespace NSprites
     #region each-update (+ for reactive/static) properties jobs
     [BurstCompile]
     /// job will take all chunks through query, and then just copy component data to compute buffer starting from 1st entity in query index
-    internal struct SyncPropertyByQueryJob<TProperty> : IJobChunk
-            where TProperty : unmanaged
+    internal struct SyncPropertyByQueryJob : IJobChunk
     {
         [ReadOnly][DeallocateOnJobCompletion] public NativeArray<int> chunkBaseEntityIndices;
         // this should be filled every frame with GetDynamicComponentTypeHandle
         [ReadOnly]public DynamicComponentTypeHandle componentTypeHandle;
         public int typeSize;
-        [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<TProperty> outputArray;
+        [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<byte> outputArray;
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
             WriteData(chunk, ref componentTypeHandle, chunkBaseEntityIndices[unfilteredChunkIndex], outputArray, typeSize);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void WriteData(in ArchetypeChunk chunk, ref DynamicComponentTypeHandle componentTypeHandle, [NoAlias] in int startCopyToIndex, in NativeArray<TProperty> writeArray, [NoAlias] in int typeSize)
+        internal static void WriteData(in ArchetypeChunk chunk, ref DynamicComponentTypeHandle componentTypeHandle, int startCopyToIndex, in NativeArray<byte> writeArray, int typeSize)
         {
 #if NSPRITES_PROPERTY_FALLBACK_ENABLE
                 // check if chunk has no prop component then allocate default values
+                // ComputeBuffer by itself has already allocated memory, but it's uninitialized, so render result can be unexpected
                 var data = chunk.Has(ref componentTypeHandle)
-                    ? chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(ref componentTypeHandle, typeSize)
-                    : new NativeArray<TProperty>(chunk.Count, Allocator.Temp);
+                    ? chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref componentTypeHandle, typeSize)
+                    : new NativeArray<byte>(chunk.Count * typeSize, Allocator.Temp, NativeArrayOptions.ClearMemory);
 #else
 #if UNITY_EDITOR
-            if (!chunk.Has(ref componentTypeHandle))
-                throw new NSpritesException($"You trying to render entities with property type {nameof(TProperty)} but without component on them. Please add all required components to entity.");
+            // if (!chunk.Has(ref componentTypeHandle))
+            //     throw new NSpritesException($"You trying to render entities with property type {nameof(TProperty)} but without component on them. Please add all required components to entity.");
 #endif
-            var data = chunk.GetDynamicComponentDataArrayReinterpret<TProperty>(ref componentTypeHandle, typeSize);
+            var data = chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref componentTypeHandle, typeSize);
 #endif
-            NativeArray<TProperty>.Copy(data, 0, writeArray, startCopyToIndex, data.Length);
+            NativeArray<byte>.Copy(data, 0, writeArray, startCopyToIndex * typeSize, chunk.Count * typeSize);
         }
     }
     #endregion
@@ -307,7 +304,7 @@ namespace NSprites
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
         public override JobHandle LoadAllChunkData(in NativeArray<ArchetypeChunk> chunks, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH, in DynamicComponentTypeHandle componentTypeHandle, in int writeCount, in JobHandle inputDeps)
         {
-            return new SyncPropertyByChunkJob<T>
+            return new SyncPropertyByChunkJob
             {
                 chunks = chunks,
                 componentTypeHandle = componentTypeHandle,
@@ -318,7 +315,7 @@ namespace NSprites
         }
         public override JobHandle UpdateOnChangeChunkData(in NativeArray<ArchetypeChunk> chunks, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH, in DynamicComponentTypeHandle componentTypeHandle, in int writeCount, in uint lastSystemVersion, in JobHandle inputDeps)
         {
-            return new SyncPropertyByChangedChunkJob<T>
+            return new SyncPropertyByChangedChunkJob
             {
                 chunks = chunks,
                 componentTypeHandle = componentTypeHandle,
@@ -338,10 +335,10 @@ namespace NSprites
             return JobHandle.CombineDependencies(reorderedHandle, createdHandle);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private JobHandle UpdateListedChunkData(in NativeArray<ArchetypeChunk> chunks, in NativeArray<T> writeArray, in NativeList<int> chunkIndexes, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH, in DynamicComponentTypeHandle componentTypeHandle, in JobHandle inputDeps)
+        private JobHandle UpdateListedChunkData(in NativeArray<ArchetypeChunk> chunks, in NativeArray<byte> writeArray, in NativeList<int> chunkIndexes, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH, in DynamicComponentTypeHandle componentTypeHandle, in JobHandle inputDeps)
         {
             return chunkIndexes.Length > 0
-                ? new SyncPropertyByListedChunkJob<T>
+                ? new SyncPropertyByListedChunkJob
                 {
                     chunks = chunks,
                     chunkIndexes = chunkIndexes,
@@ -355,7 +352,7 @@ namespace NSprites
 #endif
         public override JobHandle LoadAllQueryData(in EntityQuery query, in DynamicComponentTypeHandle componentTypeHandle, in int writeCount, in JobHandle inputDeps)
         {
-            var updatePropertyJob = new SyncPropertyByQueryJob<T>
+            var updatePropertyJob = new SyncPropertyByQueryJob
             {
                 componentTypeHandle = componentTypeHandle,
                 chunkBaseEntityIndices = query.CalculateBaseEntityIndexArrayAsync(Allocator.TempJob, default, out var calculateChunkBaseIndices),
@@ -364,8 +361,8 @@ namespace NSprites
             };
             return updatePropertyJob.ScheduleParallelByRef(query, JobHandle.CombineDependencies(inputDeps, calculateChunkBaseIndices));
         }
-        private NativeArray<T> GetBufferArray(in int writeCount) => _computeBuffer.BeginWrite<T>(0, writeCount);
-        public override void EndWrite(in int writeCount) => _computeBuffer.EndWrite<T>(writeCount);
+        private NativeArray<byte> GetBufferArray(int writeCount) => _computeBuffer.BeginWrite<byte>(0, writeCount * TypeSize);
+        public override void EndWrite(in int writeCount) => _computeBuffer.EndWrite<byte>(writeCount * TypeSize);
     }
     #endregion
 
