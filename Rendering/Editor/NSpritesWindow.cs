@@ -172,7 +172,6 @@ namespace NSprites
 
             var propertiesTable = new Table(new Color32(100, 100, 100, 255), new Color32(80, 80, 80, 255));
             var typeColumn = propertiesTable.CreateColumn();
-            var formatColumn = propertiesTable.CreateColumn();
             var idColumn = propertiesTable.CreateColumn();
             
             foreach (var prop in archetypeStorage.PropertyMap)
@@ -180,15 +179,11 @@ namespace NSprites
                 var container = new VisualElement { style = { flexDirection = new StyleEnum<FlexDirection>(FlexDirection.Row) } };
                 propertiesContainer.Add(container);
             
-                var typeLabel = new Label($"{prop.Value.componentType.GetManagedType().Name}");
-                var formatLabel = new Label($"{prop.Value.format}");
-                var idLabel = new Label($"{prop.Key}");
-                idLabel.style.fontSize = new StyleLength(10);
+                var typeLabel = new Label($"{prop.Value.GetManagedType().Name}");
+                var idLabel = new Label($"{prop.Key}") { style = { fontSize = new StyleLength(10) } };
                 container.Add(typeLabel);
-                container.Add(formatLabel);
                 container.Add(idLabel);
                 typeColumn.Add(typeLabel);
-                formatColumn.Add(formatLabel);
                 idColumn.Add(idLabel);
             }
 

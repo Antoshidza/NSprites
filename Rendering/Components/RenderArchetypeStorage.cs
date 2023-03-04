@@ -10,7 +10,7 @@ namespace NSprites
         /// <summary><see cref="Mesh"/> We will use to render every sprite, which can be created once in system</summary>
         internal Mesh Quad = NSpritesUtils.ConstructQuad();
         /// <summary>Shader property's id to property data map</summary>
-        internal readonly Dictionary<int, PropertyInternalData> PropertyMap = new();
+        internal readonly Dictionary<int, ComponentType> PropertyMap = new();
         /// <summary>All whenever registered render archetypes. Each registered archetype will be updated every frame no matter if there is any entities.</summary>
         internal readonly List<RenderArchetype> RenderArchetypes = new();
         /// <summary>System's state with all necessary data to pass to <see cref="RenderArchetype"/> to update</summary>
@@ -29,33 +29,28 @@ namespace NSprites
         /// By default system will automatically gather and bind all component types which have <see cref="InstancedPropertyComponent"/> attribute to specified property.
         /// But you can use this method to manually pass bind data.
         /// </summary>
-        public void BindComponentToShaderProperty(in int propertyID, Type componentType, in PropertyFormat format)
+        public void BindComponentToShaderProperty(int propertyID, Type componentType)
         {
 #if UNITY_EDITOR
             if (PropertyMap.ContainsKey(propertyID))
             {
                 var propertyComponent = PropertyMap[propertyID];
-                Debug.LogError($"It seems you're trying to bind multiple components to same shader property {propertyID}.\nYou're trying to add: {componentType.Name} {format}\nAlready registered: {propertyComponent.componentType.GetManagedType().Name} {propertyComponent.format}");
+                Debug.LogError($"It seems you're trying to bind multiple components to same shader property {propertyID}.\nYou're trying to add: {componentType.Name} \nAlready registered: {propertyComponent.GetManagedType().Name}");
                 return;
             }
 #endif
-            PropertyMap.Add(propertyID,
-                new PropertyInternalData(new ComponentType(componentType, ComponentType.AccessMode.ReadOnly), format));
+            PropertyMap.Add(propertyID, new ComponentType(componentType, ComponentType.AccessMode.ReadOnly));
         }
 
-        /// <summary>
-        /// Binds component to shader's property. Binded components will be gathered from entities during render process to be passed to shader.
-        /// By default system will automatically gather and bind all component types which have <see cref="InstancedPropertyComponent"/> attribute to specified property.
-        /// But you can use this method to manually pass bind data.
-        /// </summary>
-        public void BindComponentToShaderProperty(in string propertyName, Type componentType, in PropertyFormat format)
-            => BindComponentToShaderProperty(Shader.PropertyToID(propertyName), componentType, format);
+        /// <summary><inheritdoc cref="BindComponentToShaderProperty(int,System.BindComponentToShaderProperty)"/></summary>
+        public void BindComponentToShaderProperty(in string propertyName, Type componentType)
+            => BindComponentToShaderProperty(Shader.PropertyToID(propertyName), componentType);
 
         /// <summary>Fills <see cref="PropertyMap"/> with data of all types marked by <see cref="InstancedPropertyComponent"/> attribute</summary>
         private void GatherPropertiesTypes()
         {
             foreach (var property in InstancedPropertyComponent.GetProperties())
-                BindComponentToShaderProperty(property.propertyName, property.componentType, property.format);
+                BindComponentToShaderProperty(property.propertyName, property.componentType);
         }
 
         /// <summary>
