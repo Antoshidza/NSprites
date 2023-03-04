@@ -6,8 +6,8 @@ Basically it sync whatever entity component you want with GPU data to perform in
 <img src="https://user-images.githubusercontent.com/19982288/203323912-3f0aec5a-543d-4145-bf8f-42e07af2d124.gif" width="700"/>
 
 ## Features
-* Using power of :boom:**DOTS**:boom: to render numerous of sprites
-* Using any public to you per-entity component with predictable data format as shader instanced property
+* Using power of :boom:**DOTS**:boom: + instancing to render numerous of sprites
+* Using any public to you per-entity blittable component as shader instanced property
 * Data update strategies to avoid unnecessary CPU load
 * Edit-time rendering (subscene only)
 
@@ -15,8 +15,8 @@ Basically it sync whatever entity component you want with GPU data to perform in
 **For more detailed information please read [project's wiki](https://github.com/Antoshidza/NSprites/wiki)** :blue_book:
 ```csharp
 // registrate components as properties at assembly level anywhere in project
-[assembly: InstancedPropertyComponent(typeof(WorldPosition2D), "_pos2D", PropertyFormat.Float2)]
-[assembly: InstancedPropertyComponent(typeof(SpriteColor), "_color", PropertyFormat.Float4)]
+[assembly: InstancedPropertyComponent(typeof(WorldPosition2D), "_pos2D")]
+[assembly: InstancedPropertyComponent(typeof(SpriteColor), "_color")]
 ```
 ```csharp
 // registrate render with ID, Material, capacity data and set of properties
