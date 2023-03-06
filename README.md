@@ -1,5 +1,5 @@
 # NSprites - Unity DOTS Sprite Rendering Package
-This framework provides sprite rendering system compatible with Entities package (unity ECS).
+This framework provides sprite rendering system compatible with Entities package (unity ECS). [Changelog](https://github.com/Antoshidza/NSprites/wiki/Changelog)
 
 Basically it sync whatever entity component you want with GPU data to perform instanced rendering. As a result all entities with same Material can be rendered with single drawcall.
 
