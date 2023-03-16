@@ -5,7 +5,6 @@ using System.Reflection;
 using Unity.Entities;
 using System.Runtime.CompilerServices;
 using System.Linq;
-using Unity.Burst;
 using Unity.Collections;
 
 namespace NSprites
@@ -13,54 +12,6 @@ namespace NSprites
     public static partial class NSpritesUtils
     {
         #region add components methods
-        [BurstCompile]
-        [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
-        private partial struct NSpritesHandleComponentCompositionBakingSystem : ISystem
-        {
-            private struct SystemData : IComponentData
-            {
-                public EntityQuery chunkComponentLessQuery;
-                public EntityQuery chunkComponentToRemoveQuery;
-            }
-            [BurstCompile]
-            public void OnCreate(ref SystemState state)
-            {
-                var queryBuilder = new EntityQueryBuilder(Allocator.Temp);
-                queryBuilder
-                    .WithAll<PropertyPointer>()
-                    .WithNoneChunkComponent<PropertyPointerChunk>()
-                    .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities);
-                var chunkComponentLessQuery = state.GetEntityQuery(queryBuilder);
-                
-                queryBuilder.Reset();
-                queryBuilder
-                    .WithAllChunkComponent<PropertyPointerChunk>()
-                    .WithNone<PropertyPointer>()
-                    .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities);
-                var chunkComponentToRemoveQuery = state.GetEntityQuery(queryBuilder);
-                
-                queryBuilder.Dispose();
-                
-                var systemData = new SystemData
-                {
-                    chunkComponentLessQuery = chunkComponentLessQuery,
-                    chunkComponentToRemoveQuery = chunkComponentToRemoveQuery
-                };
-
-                state.EntityManager.AddComponentData(state.SystemHandle, systemData);
-            }
-            public void OnDestroy(ref SystemState state) { }
-            [BurstCompile]
-            public void OnUpdate(ref SystemState state)
-            {
-                var systemData = SystemAPI.GetComponent<SystemData>(state.SystemHandle);
-                
-                state.EntityManager.AddChunkComponentData(systemData.chunkComponentLessQuery, new PropertyPointerChunk());
-
-                state.EntityManager.RemoveChunkComponentData<PropertyPointerChunk>(systemData.chunkComponentToRemoveQuery);
-            }
-        }
-        
         /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AddSpriteRenderComponents<TAuthoringType>(this Baker<TAuthoringType> baker, in int renderID = default, in bool hasPointerComponents = true)
@@ -70,7 +21,13 @@ namespace NSprites
 
 #if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
             if (hasPointerComponents)
-                baker.AddComponent<PropertyPointer>();
+            {
+                baker.AddComponent(new ComponentTypeSet
+                (
+                    ComponentType.ReadWrite<PropertyPointer>(),
+                    ComponentType.ChunkComponent<PropertyPointerChunk>()
+                ));
+            }    
 #endif
         }
         /// <summary>
