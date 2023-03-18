@@ -1,9 +1,12 @@
 #if (UNITY_EDITOR || DEVELOPEMENT_BUILD) && !NSPRITES_DEBUG_SYSTEM_DISABLE
+using System;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace NSprites
 {
@@ -72,17 +75,30 @@ namespace NSprites
             public NativeHashSet<EntityArchetype> processedArchetypes;
         }
 
-        //private static void OnRenderArchetypeLinkClicked(EditorWindow window, HyperLinkClickedEventArgs args)
-        //{
-        //    if (window.titleContent.text != "Console" ||
-        //        !args.hyperLinkData.ContainsKey("hash"))
-        //        return;
+        [BurstDiscard]
+        private static void OnRenderArchetypeLinkClicked(EditorWindow window, HyperLinkClickedEventArgs args)
+        {
+            if (window.titleContent.text != "Console" ||
+                !args.hyperLinkData.ContainsKey("hash"))
+                return;
 
-        //    GUIUtility.systemCopyBuffer = args.hyperLinkData["hash"];
-        //    // TODO: do something here if we can access to archetypes window or somehow select archetype
-        //}
+            var hash = args.hyperLinkData["hash"];
+            GUIUtility.systemCopyBuffer = hash;
 
-        [BurstCompile]
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in assemblies)
+            {
+                if (assembly.GetName().Name != "Unity.Entities.Editor")
+                    continue;
+
+                EditorWindow.GetWindow(assembly.GetType("Unity.Entities.Editor.ArchetypesWindow"))
+                    .rootVisualElement.Q<TextField>("search-element-text-field-search-string")
+                    .value = hash;
+
+                break;
+            }
+        }
+
         public void OnCreate(ref SystemState state)
         {
             state.EntityManager.AddComponentData(state.SystemHandle, new SystemData 
@@ -91,7 +107,7 @@ namespace NSprites
                 processedArchetypes = new NativeHashSet<EntityArchetype>(1, Allocator.Persistent)
             });
 
-            //EditorGUI.hyperLinkClicked += OnRenderArchetypeLinkClicked;
+            EditorGUI.hyperLinkClicked += OnRenderArchetypeLinkClicked;
         }
         public void OnDestroy(ref SystemState state)
         {
@@ -100,7 +116,7 @@ namespace NSprites
 
             systemData.processedArchetypes.Dispose();
 
-            //EditorGUI.hyperLinkClicked -= OnRenderArchetypeLinkClicked;
+            EditorGUI.hyperLinkClicked -= OnRenderArchetypeLinkClicked;
         }
 
         public void OnUpdate(ref SystemState state)
