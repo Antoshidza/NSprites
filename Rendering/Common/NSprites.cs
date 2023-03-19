@@ -21,13 +21,11 @@ namespace NSprites
 
 #if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
             if (hasPointerComponents)
-            {
                 baker.AddComponent(new ComponentTypeSet
                 (
                     ComponentType.ReadWrite<PropertyPointer>(),
-                    ComponentType.ChunkComponent<PropertyPointerChunk>()
+                    ComponentType.ChunkComponentReadOnly<PropertyPointerChunk>()
                 ));
-            }    
 #endif
         }
         /// <summary>
@@ -43,10 +41,11 @@ namespace NSprites
 
 #if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
             if (hasPointerComponents)
-            {
-                entityManager.AddComponentData(entity, new PropertyPointer());
-                entityManager.AddChunkComponentData<PropertyPointerChunk>(entity);
-            }
+                entityManager.AddComponent(entity, new ComponentTypeSet
+                (
+                    ComponentType.ReadOnly<PropertyPointer>(),
+                    ComponentType.ChunkComponent<PropertyPointerChunk>()
+                ));
 #endif
         }
         /// <summary>
@@ -61,7 +60,11 @@ namespace NSprites
             entityManager.AddSharedComponent(query, new SpriteRenderID { id = renderID });
 #if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
             if (hasPointerComponents)
-                entityManager.AddComponent<PropertyPointer>(query);
+                entityManager.AddComponent(query, new ComponentTypeSet
+                (
+                    ComponentType.ReadOnly<PropertyPointer>(),
+                    ComponentType.ChunkComponent<PropertyPointerChunk>()
+                ));
 #endif
         }
         /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
