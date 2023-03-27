@@ -14,6 +14,12 @@ namespace NSprites
         #region add components methods
         /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void AddSpriteRenderComponents<TAuthoringType>(this Baker<TAuthoringType> baker, in int renderID = default, in bool hasPointerComponents = true)
+            where TAuthoringType : Component 
+            => baker.AddSpriteRenderComponents(baker.GetEntity(TransformUsageFlags.None), renderID, hasPointerComponents);
+
+        /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AddSpriteRenderComponents<TAuthoringType>(this Baker<TAuthoringType> baker, in Entity entity, in int renderID = default, in bool hasPointerComponents = true)
             where TAuthoringType : Component
         {
