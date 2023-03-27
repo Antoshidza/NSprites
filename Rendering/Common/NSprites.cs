@@ -14,14 +14,14 @@ namespace NSprites
         #region add components methods
         /// <summary><inheritdoc cref="AddSpriteRenderComponents(in Entity, in EntityManager, in int, in bool)"/></summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void AddSpriteRenderComponents<TAuthoringType>(this Baker<TAuthoringType> baker, in int renderID = default, in bool hasPointerComponents = true)
+        public static void AddSpriteRenderComponents<TAuthoringType>(this Baker<TAuthoringType> baker, in Entity entity, in int renderID = default, in bool hasPointerComponents = true)
             where TAuthoringType : Component
         {
-            baker.AddSharedComponent(new SpriteRenderID { id = renderID });
+            baker.AddSharedComponent(entity, new SpriteRenderID { id = renderID });
 
 #if !NSPRITES_REACTIVE_PROPERTIES_DISABLE || !NSPRITES_STATIC_PROPERTIES_DISABLE
             if (hasPointerComponents)
-                baker.AddComponent(new ComponentTypeSet
+                baker.AddComponent(entity, new ComponentTypeSet
                 (
                     ComponentType.ReadWrite<PropertyPointer>(),
                     ComponentType.ChunkComponentReadOnly<PropertyPointerChunk>()
