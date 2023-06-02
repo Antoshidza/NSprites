@@ -97,7 +97,7 @@ This sample project covers basics of rendering with NSprites. Use it to get a ma
 * `cd` to your project's `/Packages` folder
 * git submodule https://github.com/Antoshidza/NSprites.git
 
-## Support :+1: Contribute :computer: Contanct :speech_balloon:
+## Support :+1: Contribute :computer: Contact :speech_balloon:
 I wish this project will be helpful for any ECS early adopters! So feel free to send bug reports / pull requests, start discussions / critique, those all are **highly** appreciated!
 You can contact with my [discord account](https://www.discordapp.com/users/219868910223228929)!
 Also there is a [thread](https://forum.unity.com/threads/1-0-3-nsprites-sprite-rendering-package.1367463/) on unity dots forum!
