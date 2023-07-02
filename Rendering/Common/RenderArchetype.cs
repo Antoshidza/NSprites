@@ -878,13 +878,17 @@ namespace NSprites
                     {
                         var property = _properties[propIndex];
                         property.Reallocate(_perEntityPropertiesSpaceCounter.capacity, _materialPropertyBlock);
-                        ScheduleLoadAllQueryData(property, propIndex, systemState.GetDynamicComponentTypeHandle(_pointersProperty.ComponentType), query, systemData.inputDeps);
+                        ScheduleLoadAllQueryData(property, propIndex, systemState.GetDynamicComponentTypeHandle(property.ComponentType), query, systemData.inputDeps);
                     }
                 }
                 /// if there was no exceed just load all <see cref="PropertyUpdateMode.EachUpdate"/> properties data
                 else
                     for (int propIndex = EUP_Offset; propIndex < EUP_Offset + EUP_Count; propIndex++)
-                        ScheduleLoadAllQueryData(_properties[propIndex], propIndex, systemState.GetDynamicComponentTypeHandle(_pointersProperty.ComponentType), query, systemData.inputDeps);
+                    {
+                        var property = _properties[propIndex];
+                        ScheduleLoadAllQueryData(property, propIndex, systemState.GetDynamicComponentTypeHandle(property.ComponentType), query, systemData.inputDeps);
+                    }
+
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
             }
 #endif
