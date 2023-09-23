@@ -192,7 +192,7 @@ namespace NSprites
 
         private void UpdateRenderArchetype(RenderArchetype renderArchetype, VisualElement root)
         {
-            var renderContainer = root.Q<Foldout>($"RA_{renderArchetype._id}");
+            var renderContainer = root.Q<Foldout>($"RA_{renderArchetype.ID}");
             if (renderContainer == null)
             {
                 renderContainer = DisplayRenderArchetype(renderArchetype);
@@ -202,12 +202,12 @@ namespace NSprites
             renderContainer.text = GetRenderArchetypeTitle(renderArchetype);
         }
         private string GetRenderArchetypeTitle(RenderArchetype renderArchetype) =>
-            $"Render: {renderArchetype._id} capacity: {renderArchetype._perChunkPropertiesSpaceCounter.count} / {renderArchetype._perChunkPropertiesSpaceCounter.capacity}";
+            $"Render: {renderArchetype.ID} capacity: {renderArchetype.PerChunkPropertiesSpaceCounter.Count} / {renderArchetype.PerChunkPropertiesSpaceCounter.Capacity}";
         private Foldout DisplayRenderArchetype(RenderArchetype renderArchetype)
         {
             var renderContainer = new Foldout
             {
-                name = $"RA_{renderArchetype._id}", 
+                name = $"RA_{renderArchetype.ID}", 
                 // text = GetRenderArchetypeTitle(renderArchetype), // will be updated in update method
                 value = false
             };
@@ -231,7 +231,7 @@ namespace NSprites
             
             var matField = new ObjectField("material");
             matContainer.Add(matField);
-            matField.value = renderArchetype._material;
+            matField.value = renderArchetype.Material;
             matField.SetEnabled(false);
             matField.objectType = typeof(Material);
 
@@ -247,7 +247,7 @@ namespace NSprites
                 var propContainer = CreateRowVisualElement();
                 
                 var typeLabel = new Label(property.ComponentType.GetManagedType().Name);
-                var idLabel = new Label(property._propertyID.ToString());
+                var idLabel = new Label(property.PropertyID.ToString());
                 var updateModeLabel = new Label(updateMode.ToString());
 
                 static Color GetColor(PropertyUpdateMode updateMode)
@@ -279,7 +279,7 @@ namespace NSprites
 
             foreach (var prop in renderArchetype.GetPropertiesData())
                 container.Add(DisplayProperty(prop.Item1, prop.Item2));
-            var propPointerContainer = DisplayProperty(renderArchetype._pointersProperty, PropertyUpdateMode.EachUpdate);
+            var propPointerContainer = DisplayProperty(renderArchetype.PointersProperty, PropertyUpdateMode.EachUpdate);
             propPointerContainer.style.opacity = .25f;
             container.Add(propPointerContainer);
 

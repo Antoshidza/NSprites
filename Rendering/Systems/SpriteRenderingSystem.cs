@@ -1,6 +1,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace NSprites
@@ -18,7 +19,7 @@ namespace NSprites
             throw new NSpritesException($"You can't disable {nameof(PropertyUpdateMode.Reactive)}, {nameof(PropertyUpdateMode.Static)} and {nameof(PropertyUpdateMode.EachUpdate)} properties modes at the same time, there should be at least one mode if you want system to work. Please, enable at least one mode.");
 #endif
             // instantiate and initialize system data
-            var renderArchetypeStorage = new RenderArchetypeStorage{ SystemData = new SystemData { query = state.GetEntityQuery(NSpritesUtils.GetDefaultComponentTypes()) }};
+            var renderArchetypeStorage = new RenderArchetypeStorage{ SystemData = new SystemData { Query = state.GetEntityQuery(NSpritesUtils.GetDefaultComponentTypes()) }};
             renderArchetypeStorage.Initialize();
             state.EntityManager.AddComponentObject(state.SystemHandle, renderArchetypeStorage);
         }
@@ -38,17 +39,18 @@ namespace NSprites
             // update state to pass to render archetypes
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
             var systemData = renderArchetypeStorage.SystemData;
-            systemData.lastSystemVersion = state.LastSystemVersion;
-            systemData.propertyPointer_CTH_RW = SystemAPI.GetComponentTypeHandle<PropertyPointer>(false);
-            systemData.propertyPointerChunk_CTH_RW = SystemAPI.GetComponentTypeHandle<PropertyPointerChunk>(false);
-            systemData.propertyPointerChunk_CTH_RO = SystemAPI.GetComponentTypeHandle<PropertyPointerChunk>(true);
+            systemData.LastSystemVersion = state.LastSystemVersion;
+            systemData.PropertyPointer_CTH_RW = SystemAPI.GetComponentTypeHandle<PropertyPointer>(false);
+            systemData.PropertyPointerChunk_CTH_RW = SystemAPI.GetComponentTypeHandle<PropertyPointerChunk>(false);
+            systemData.PropertyPointerChunk_CTH_RO = SystemAPI.GetComponentTypeHandle<PropertyPointerChunk>(true);
 #endif
-            systemData.inputDeps = state.Dependency;
+            systemData.InputDeps = state.Dependency;
 
             // schedule render archetype's properties data update
             var renderArchetypeHandles = new NativeArray<JobHandle>(renderArchetypeStorage.RenderArchetypes.Count, Allocator.Temp);
             for (var archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
                 renderArchetypeHandles[archetypeIndex] = renderArchetypeStorage.RenderArchetypes[archetypeIndex].ScheduleUpdate(systemData, ref state);
+            
 
             // force complete properties data update and draw archetypes
             for (var archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
@@ -56,6 +58,8 @@ namespace NSprites
 
             // combine handles from all render archetypes we have updated
             state.Dependency = JobHandle.CombineDependencies(renderArchetypeHandles);
+            
+            // state.EntityManager.CompleteAllTrackedJobs();
         }
     }
 }

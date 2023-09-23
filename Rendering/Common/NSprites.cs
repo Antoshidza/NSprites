@@ -217,13 +217,17 @@ namespace NSprites
         /// </summary>
         internal static (InstancedProperty, PropertyUpdateMode)[] GetPropertiesData(this RenderArchetype renderArchetype)
         {
-            var array = new (InstancedProperty, PropertyUpdateMode)[renderArchetype._properties.Length];
+            var array = new (InstancedProperty, PropertyUpdateMode)[renderArchetype.Properties.Length];
+#if !NSPRITES_REACTIVE_DISABLE
             for (var i = 0; i < renderArchetype.RP_Count; i++)
-                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype._properties[i], PropertyUpdateMode.Reactive);
+                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype.Properties[i], PropertyUpdateMode.Reactive);
+#endif
+#if !NSPRITES_STATIC_DISABLE
             for (var i = renderArchetype.SP_Offset; i < renderArchetype.SP_Offset + renderArchetype.SP_Count; i++)
-                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype._properties[i], PropertyUpdateMode.Static);
+                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype.Properties[i], PropertyUpdateMode.Static);
+#endif
             for (var i = renderArchetype.EUP_Offset; i < renderArchetype.EUP_Offset + renderArchetype.EUP_Count; i++)
-                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype._properties[i], PropertyUpdateMode.EachUpdate);
+                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype.Properties[i], PropertyUpdateMode.EachUpdate);
 
             return array;
         }

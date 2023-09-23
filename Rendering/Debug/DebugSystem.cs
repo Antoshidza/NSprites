@@ -131,13 +131,13 @@ namespace NSprites
             {
                 var renderArchetype = renderArchetypeStorage.RenderArchetypes[archetypeIndex];
                 var query = systemData.renderQuery;
-                query.SetSharedComponentFilter(new SpriteRenderID { id = renderArchetype._id });
+                query.SetSharedComponentFilter(new SpriteRenderID { id = renderArchetype.ID });
 
                 var chunks = query.ToArchetypeChunkListAsync(Allocator.TempJob, state.Dependency, out var fetchingChunksHandle);
 
-                var requiredComponents = new NativeArray<ComponentType>(renderArchetype._properties.Length, Allocator.TempJob);
-                for (int propIndex = 0; propIndex < renderArchetype._properties.Length; propIndex++)
-                    requiredComponents[propIndex] = renderArchetype._properties[propIndex].ComponentType;
+                var requiredComponents = new NativeArray<ComponentType>(renderArchetype.Properties.Length, Allocator.TempJob);
+                for (int propIndex = 0; propIndex < renderArchetype.Properties.Length; propIndex++)
+                    requiredComponents[propIndex] = renderArchetype.Properties[propIndex].ComponentType;
 
                 fetchingChunksHandle.Complete();
                 var archetypesHashSet = new NativeParallelHashSet<EntityArchetype>(chunks.Length, Allocator.TempJob);
@@ -185,9 +185,9 @@ namespace NSprites
                 var issues = validateResult.jobData.hasIssues;
                 var perArchetypeOffset = validateResult.jobData.requiredComponents.Length + 3;
                 var anyIssuesIndex = validateResult.jobData.requiredComponents.Length;
-                var propCount = renderArchetype._properties.Length;
+                var propCount = renderArchetype.Properties.Length;
 
-                var issueReport = $"{nameof(RenderArchetype)} {renderArchetype._id} issue report:\n";
+                var issueReport = $"{nameof(RenderArchetype)} {renderArchetype.ID} issue report:\n";
                 var renderHasAnyIssue = false;
 
                 for (int archetypIndex = 0; archetypIndex < archetypes.Length; archetypIndex++)
@@ -202,7 +202,7 @@ namespace NSprites
 
                     for (int propIndex = 0; propIndex < propCount; propIndex++)
                         if (issues[perArchetypeOffset * archetypIndex + propIndex])
-                            issueReport += $"\t\tMiss <color=red>{renderArchetype._properties[propIndex].ComponentType.TypeIndex}</color> component\n";
+                            issueReport += $"\t\tMiss <color=red>{renderArchetype.Properties[propIndex].ComponentType.TypeIndex}</color> component\n";
 
                     if (issues[perArchetypeOffset * archetypIndex + propCount + 1])
                         issueReport += $"\t\t<color=red>Has {nameof(PropertyPointer)} but no {nameof(PropertyPointerChunk)}. It shouldn't happen, please, contact developer <a href=\"https://github.com/Antoshidza\">https://github.com/Antoshidza</a></color>\n";
