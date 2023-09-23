@@ -143,8 +143,8 @@ namespace NSprites
         [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
         // this should be filled every frame with GetDynamicComponentTypeHandle
         [ReadOnly] public DynamicComponentTypeHandle ComponentTypeHandle;
-        [ReadOnly] public uint LastSystemVersion;
-        [ReadOnly] public int TypeSize;
+        public uint LastSystemVersion;
+        public int TypeSize;
         [ReadOnly] public ComponentTypeHandle<PropertyPointerChunk> PropertyPointerChunk_CTH;
         [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<byte> OutputArray;
 
@@ -237,6 +237,10 @@ namespace NSprites
         internal readonly int PropertyID;
         /// <summary> Buffer which synced with entities components data </summary>
         internal ComputeBuffer ComputeBuffer;
+        
+#if UNITY_EDITOR || DEVELOPEMENT_BUILD
+        internal int LastWritingFrame;
+#endif
 
         private int TypeSize => ComputeBuffer.stride;
 
@@ -310,8 +314,26 @@ namespace NSprites
             };
             return updatePropertyJob.ScheduleParallelByRef(query, JobHandle.CombineDependencies(inputDeps, calculateChunkBaseIndices));
         }
-        private NativeArray<byte> GetBufferArray(int writeCount) => ComputeBuffer.BeginWrite<byte>(0, writeCount * TypeSize);
-        public void EndWrite(in int writeCount) => ComputeBuffer.EndWrite<byte>(writeCount * TypeSize);
+        private NativeArray<byte> GetBufferArray(int writeCount)
+        {
+#if UNITY_EDITOR || DEVELOPEMENT_BUILD
+            LastWritingFrame = LastWritingFrame == Time.frameCount
+                ? throw new NSpritesException($"{nameof(InstancedProperty)} {ComponentType.GetManagedType().Name} is already writing into it's buffer. Multiple calling to {nameof(GetBufferArray)} isn't allowed.")
+                : Time.frameCount;
+#endif
+            
+            return ComputeBuffer.BeginWrite<byte>(0, writeCount * TypeSize);
+        }
+
+        public void EndWrite(in int writeCount)
+        {
+#if UNITY_EDITOR || DEVELOPEMENT_BUILD
+            if (LastWritingFrame != Time.frameCount)
+                throw new NSpritesException($"{nameof(InstancedProperty)} {ComponentType.GetManagedType().Name} isn't writing to buffer. Calling to {nameof(EndWrite)} before writing to buffer isn't allowed.");
+#endif
+            
+            ComputeBuffer.EndWrite<byte>(writeCount * TypeSize);
+        }
 
         public void Reallocate(in int size, MaterialPropertyBlock materialPropertyBlock)
         {
@@ -821,14 +843,14 @@ namespace NSprites
                     }
 #endif
 #if !NSPRITES_STATIC_DISABLE
-                    // 1. if there are any reordered / created chunks then just update createdChunksIndexes AND reorderedChunksIndexes chunks
+                    // 1. if there are any reordered / created chunks then just update createdChunksIndices AND reorderedChunksIndices chunks
                     // for each such property we want to schedule job per each list of indices, so we need to combine dependencies every iteration
                     if (reorderedChunksIndexes.Length > 0 || createdChunksIndexes.Length > 0)
                     {
                         // set to true because here we will update static properties, which are conditional
                         _handleCollector.IncludeConditional = true;
 
-                        for (int propIndex = SP_Offset; propIndex < SP_Offset + SP_Count; propIndex++)
+                        for (var propIndex = SP_Offset; propIndex < SP_Offset + SP_Count; propIndex++)
                         {
                             var property = Properties[propIndex];
                             var handle = property.UpdateCreatedAndReorderedChunkData
