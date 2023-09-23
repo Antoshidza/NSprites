@@ -880,7 +880,7 @@ namespace NSprites
                 // reallocate buffers if capacity exceeded by _minCapacityStep and load all data for each-update and static properties
                 if (_perEntityPropertiesSpaceCounter.Capacity < _entityCount)
                 {
-                    _perEntityPropertiesSpaceCounter.Capacity = (int)math.ceil((float)_entityCount / _minCapacityStep);
+                    _perEntityPropertiesSpaceCounter.Capacity += math.max(_minCapacityStep, _entityCount - _perEntityPropertiesSpaceCounter.Capacity);
                     // reallocate and reload all data for each-update properties
                     for (var propIndex = EUP_Offset; propIndex < EUP_Offset + EUP_Count; propIndex++)
                     {

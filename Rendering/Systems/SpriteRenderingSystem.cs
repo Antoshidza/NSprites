@@ -1,7 +1,6 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
-using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace NSprites
@@ -51,15 +50,12 @@ namespace NSprites
             for (var archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
                 renderArchetypeHandles[archetypeIndex] = renderArchetypeStorage.RenderArchetypes[archetypeIndex].ScheduleUpdate(systemData, ref state);
             
-
             // force complete properties data update and draw archetypes
             for (var archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
                 renderArchetypeStorage.RenderArchetypes[archetypeIndex].CompleteAndDraw();
 
             // combine handles from all render archetypes we have updated
             state.Dependency = JobHandle.CombineDependencies(renderArchetypeHandles);
-            
-            // state.EntityManager.CompleteAllTrackedJobs();
         }
     }
 }
