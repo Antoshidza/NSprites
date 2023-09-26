@@ -884,6 +884,10 @@ namespace NSprites
                     ScheduleLoadAllQueryData(PointersProperty, _handleCollector.PropertyPointerIndex, systemState.GetDynamicComponentTypeHandle(PointersProperty.ComponentType), query, preReadDependency);
 #endif
                 }
+                
+// #if UNITY_EDITOR || DEVELOPEMENT_BUILD
+//                 PerChunkPropertiesSpaceCounter.Verify(neededOverallCapacity);
+// #endif
                 #endregion
 
                 #region dispose containers
