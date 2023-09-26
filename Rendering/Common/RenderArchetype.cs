@@ -49,6 +49,18 @@ namespace NSprites
         public int Count;
         // how much more space property can use
         public int UnusedCapacity => Capacity - Count;
+        
+        // #if UNITY_EDITOR || DEVELOPEMENT_BUILD
+        // public void Verify(int capacityNeeded)
+        // {
+        //     if (Count > Capacity)
+        //         throw new NSpritesException($"{nameof(Count)} can't be greater then {nameof(Capacity)}");
+        //     if (Count != capacityNeeded)
+        //         throw new NSpritesException($"{nameof(Count)} is {Count} but {capacityNeeded} capacity needed, {nameof(Count)} can't be less then this value");
+        //     if (Capacity < capacityNeeded)
+        //         throw new NSpritesException($"{nameof(Capacity)} is {Capacity} which less then capacity needed: {capacityNeeded}.");
+        // }
+        // #endif
     }
     
     // TODO: rework sequence of properties handles in a way that SP...RP...EUP
