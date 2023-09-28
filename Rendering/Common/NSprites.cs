@@ -159,6 +159,9 @@ namespace NSprites
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static PropertyUpdateMode GetActualMode(in PropertyUpdateMode mode)
         {
+            // early-out for now because another modes causes graphic artifacts
+            return PropertyUpdateMode.EachUpdate;
+            
 #if UNITY_EDITOR
             if (!Application.isPlaying && mode == PropertyUpdateMode.Static)
             {
