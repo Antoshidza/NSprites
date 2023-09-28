@@ -27,11 +27,13 @@ namespace NSprites
         private static void WriteFullChunkData(this in ArchetypeChunk chunk, ref DynamicComponentTypeHandle componentTypeHandle, [NoAlias]int startCopyToIndex, in NativeArray<byte> writeArray, [NoAlias]int typeSize)
         {
             chunk.GetData(ref componentTypeHandle, typeSize, out var data);
+            var chunkCapacityInBytes = chunk.Capacity * typeSize;
             
-            unsafe
-            {
-                data = CollectionHelper.ConvertExistingDataToNativeArray<byte>(data.GetUnsafeReadOnlyPtr(), chunk.Capacity * typeSize, Allocator.Temp, true);
-            }
+            if(data.Length < chunkCapacityInBytes)
+                unsafe
+                {
+                    data = CollectionHelper.ConvertExistingDataToNativeArray<byte>(data.GetUnsafeReadOnlyPtr(), chunk.Capacity * typeSize, Allocator.Temp, true);
+                }
 
             WriteData(data, writeArray, startCopyToIndex, typeSize);
         } 
