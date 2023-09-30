@@ -69,7 +69,7 @@ namespace NSprites
         #endif
     }
     
-    // TODO: rework sequence of properties handles in a way that SP...RP...EUP
+    // TODO: rework sequence of properties handles in a way that SP...RP...EUP OR simplify handle collection by using persistant NativeList
     internal struct PropertyHandleCollector : IDisposable
     {
         private NativeArray<JobHandle> _handles;
@@ -304,7 +304,7 @@ namespace NSprites
 #endif
                     var propertyPointerChunk = chunk.GetChunkComponentData(ref PropertyPointerChunk_CTH_RO);
                     // if PropertyPointerChunk's count (which is set later equal to chunk's capacity) is 0 then chunk is newly created
-                    if (propertyPointerChunk.Count == 0)
+                    if (!propertyPointerChunk.Initialized)
                     {
                         CreatedChunksCapacityCounter.Add(capacity);
                         NewChunksIndices.AddNoResize(chunkIndex);
@@ -330,7 +330,7 @@ namespace NSprites
                 {
                     var chunk = Chunks[ChunksIndices[i]];
                     var capacity = chunk.Capacity;
-                    chunk.SetChunkComponentData(ref PropertyPointerChunk_CTH, new PropertyPointerChunk { From = StartingFromIndex, Count = capacity });
+                    chunk.SetChunkComponentData(ref PropertyPointerChunk_CTH, new PropertyPointerChunk { From = StartingFromIndex, Initialized = true });
                     StartingFromIndex += capacity;
                 }
             }
@@ -369,7 +369,7 @@ namespace NSprites
                 {
                     var chunk = Chunks[i];
                     var capacity = chunk.Capacity;
-                    chunk.SetChunkComponentData(ref PropertyPointerChunk_CTH, new PropertyPointerChunk { From = index, Count = capacity });
+                    chunk.SetChunkComponentData(ref PropertyPointerChunk_CTH, new PropertyPointerChunk { From = index, Initialized = true });
                     index += capacity;
                 }
             }
@@ -554,7 +554,7 @@ namespace NSprites
             if (_shouldHandlePropertiesByChunk)
             {
 #endif
-#region chunk gather data
+                #region chunk gather data
                 // TODO: try to avoid sync point
                 chunksArray = query.ToArchetypeChunkArray(Allocator.TempJob);
 
