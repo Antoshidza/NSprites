@@ -8,12 +8,11 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using static NSprites.SyncDataJobs;
 
 namespace NSprites
 {
     #region data structs
-    /// <summary>Holds info about: what shader's property id / update mode property uses</summary>
+    /// <summary> Holds info about: what shader's property id / update mode property uses </summary>
     public struct PropertyData
     {
         internal readonly int PropertyID;
@@ -41,216 +40,32 @@ namespace NSprites
         public uint LastSystemVersion;
 #endif
     }
-    internal struct PropertySpaceCounter
+    internal struct AllocationCounter
     {
         /// <summary>
         /// Current length of each property's buffer
         /// </summary>
-        public int Capacity;
+        public int Allocated;
         /// <summary>
         /// How much space actually used by chunks. This value needed to understand where on buffer we write data.
         /// </summary>
-        public int Count;
+        public int Used;
         /// <summary>
         /// Space in buffer which isn't placed by any chunk yet.
         /// </summary>
-        public int UnusedCapacity => Capacity - Count;
+        public int Unused => Allocated - Used;
         
         #if UNITY_EDITOR || DEVELOPEMENT_BUILD
         public void Verify(int capacityNeeded)
         {
-            if (Count > Capacity)
-                throw new NSpritesException($"{nameof(Count)} can't be greater then {nameof(Capacity)}");
-            if (Count < capacityNeeded)
-                throw new NSpritesException($"{nameof(Count)} is {Count} but {capacityNeeded} capacity needed, {nameof(Count)} can't be less then this value");
-            if (Capacity < capacityNeeded)
-                throw new NSpritesException($"{nameof(Capacity)} is {Capacity} which less then capacity needed: {capacityNeeded}.");
+            if (Used > Allocated)
+                throw new NSpritesException($"{nameof(Used)} can't be greater then {nameof(Allocated)}.");
+            if (Used < capacityNeeded)
+                throw new NSpritesException($"{Used} {nameof(Used)} but {capacityNeeded} capacity needed, {nameof(Used)} can't be less then this value.");
+            if (Allocated < capacityNeeded)
+                throw new NSpritesException($"{Allocated} {nameof(Allocated)} which less then capacity needed: {capacityNeeded}.");
         }
         #endif
-    }
-    
-    // TODO: rework sequence of properties handles in a way that SP...RP...EUP OR simplify handle collection by using persistant NativeList
-    internal struct PropertyHandleCollector : IDisposable
-    {
-        private NativeArray<JobHandle> _handles;
-        private readonly int _conditionalOffset;
-        public bool IncludeConditional;
-        public readonly int PropertyPointerIndex;
-
-        public JobHandle this[int i] => _handles[i];
-
-        public PropertyHandleCollector(in int capacity, in int conditionalCount, in Allocator allocator)
-        {
-            _handles = new NativeArray<JobHandle>(capacity, allocator);
-            _conditionalOffset = capacity - conditionalCount - 1;
-            IncludeConditional = false;
-            PropertyPointerIndex = capacity - 1;
-        }
-
-        public void Add(in JobHandle handle, in int index) => _handles[index] = handle;
-        public JobHandle GetCombined()
-        {
-            if (IncludeConditional)
-                return JobHandle.CombineDependencies(_handles);
-            
-            var handle = JobHandle.CombineDependencies(new NativeSlice<JobHandle>(_handles, 0, _conditionalOffset));
-            return JobHandle.CombineDependencies(handle, _handles[PropertyPointerIndex]);
-
-        }
-
-        public void Reset() => IncludeConditional = false;
-
-        public void Dispose() => _handles.Dispose();
-    }
-#if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
-    internal struct ReusableNativeList<T> : IDisposable
-        where T : unmanaged
-    {
-        private NativeList<T> _list;
-
-        public ReusableNativeList(in int initialCapacity, in Allocator allocator) 
-            => _list = new NativeList<T>(initialCapacity, allocator);
-
-        public void Dispose()
-        {
-            if(_list.IsCreated)
-                _list.Dispose();
-        }
-
-        public NativeList<T> GetList(in int capacity)
-        {
-            if (_list.Capacity < capacity)
-                _list.SetCapacity(capacity);
-            _list.Clear();
-            return _list;
-        }
-    }
-#endif
-    #endregion
-
-    #region properties
-    /// <summary>
-    /// Holds data to schedule property component's data with compute buffers,
-    /// so per property in render archetype we have one instance of this class
-    /// </summary>
-    internal class InstancedProperty
-    {
-        /// <summary> Property id from <see cref="Shader.PropertyToID"/> to be able to pass to <see cref="MaterialPropertyBlock"/> </summary>
-        internal readonly int PropertyID;
-        /// <summary> Buffer which synced with entities components data </summary>
-        internal ComputeBuffer ComputeBuffer;
-        
-#if UNITY_EDITOR || DEVELOPEMENT_BUILD
-        internal bool IsWriting;
-#endif
-
-        private int TypeSize => ComputeBuffer.stride;
-
-        /// <summary> Cached component type + system to retrieve <see cref="DynamicComponentTypeHandle"/> </summary>
-        public ComponentType ComponentType { get; }
-
-        public InstancedProperty(in int propertyID, in int count, in int stride, in ComponentType componentType)
-        {
-            PropertyID = propertyID;
-            ComponentType = componentType;
-
-            ComputeBuffer = new ComputeBuffer(count, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
-        }
-#if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
-        public JobHandle LoadAllChunkData(in NativeArray<ArchetypeChunk> chunks, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH, in DynamicComponentTypeHandle componentTypeHandle, in int writeCount, in JobHandle inputDeps)
-        {
-            return new SyncPropertyByChunkJob
-            {
-                Chunks = chunks,
-                ComponentTypeHandle = componentTypeHandle,
-                TypeSize = TypeSize,
-                PropertyPointerChunk_CTH = propertyPointerChunk_CTH,
-                OutputArray = GetBufferArray(writeCount)
-            }.ScheduleBatch(chunks.Length, RenderArchetype.MinIndicesPerJobCount, inputDeps);
-        }
-        public JobHandle UpdateOnChangeChunkData(in NativeArray<ArchetypeChunk> chunks, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH, in DynamicComponentTypeHandle componentTypeHandle, in int writeCount, in uint lastSystemVersion, in JobHandle inputDeps)
-        {
-            return new SyncPropertyByChangedChunkJob
-            {
-                Chunks = chunks,
-                ComponentTypeHandle = componentTypeHandle,
-                TypeSize = TypeSize,
-                PropertyPointerChunk_CTH = propertyPointerChunk_CTH,
-                LastSystemVersion = lastSystemVersion,
-                OutputArray = GetBufferArray(writeCount)
-            }.ScheduleBatch(chunks.Length, RenderArchetype.MinIndicesPerJobCount, inputDeps);
-        }
-#endif
-#if !NSPRITES_STATIC_DISABLE
-        public JobHandle UpdateCreatedAndReorderedChunkData(in NativeArray<ArchetypeChunk> chunks, in NativeList<int> reorderedIndexes, in NativeList<int> createdIndexes, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH, in DynamicComponentTypeHandle componentTypeHandle, in int writeCount, in JobHandle inputDeps)
-        {
-            var writeArray = GetBufferArray(writeCount);
-            var reorderedHandle = UpdateListedChunkData(chunks, writeArray, reorderedIndexes, propertyPointerChunk_CTH, componentTypeHandle, inputDeps);
-            var createdHandle = UpdateListedChunkData(chunks, writeArray, createdIndexes, propertyPointerChunk_CTH, componentTypeHandle, inputDeps);
-            return JobHandle.CombineDependencies(reorderedHandle, createdHandle);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private JobHandle UpdateListedChunkData(in NativeArray<ArchetypeChunk> chunks, in NativeArray<byte> writeArray, in NativeList<int> chunkIndexes, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH, in DynamicComponentTypeHandle componentTypeHandle, in JobHandle inputDeps)
-        {
-            return chunkIndexes.Length > 0
-                ? new SyncPropertyByListedChunkJob
-                {
-                    Chunks = chunks,
-                    ChunkIndexes = chunkIndexes,
-                    TypeSize = TypeSize,
-                    PropertyPointerChunk_CTH = propertyPointerChunk_CTH,
-                    ComponentTypeHandle = componentTypeHandle,
-                    OutputArray = writeArray
-                }.ScheduleBatch(chunkIndexes.Length, RenderArchetype.MinIndicesPerJobCount, inputDeps)
-                : inputDeps;
-        }
-#endif
-        public JobHandle LoadAllQueryData(ref EntityQuery query, in DynamicComponentTypeHandle componentTypeHandle, in int writeCount, in JobHandle inputDeps)
-        {
-            var updatePropertyJob = new SyncPropertyByQueryJob
-            {
-                ComponentTypeHandle = componentTypeHandle,
-                ChunkBaseEntityIndices = query.CalculateBaseEntityIndexArrayAsync(Allocator.TempJob, default, out var calculateChunkBaseIndices),
-                TypeSize = TypeSize,
-                OutputArray = GetBufferArray(writeCount)
-            };
-            return updatePropertyJob.ScheduleParallelByRef(query, JobHandle.CombineDependencies(inputDeps, calculateChunkBaseIndices));
-        }
-        private NativeArray<byte> GetBufferArray(int writeCount)
-        {
-#if UNITY_EDITOR || DEVELOPEMENT_BUILD
-            if(IsWriting)
-                throw new NSpritesException($"{nameof(InstancedProperty)} {ComponentType.GetManagedType().Name} is already writing into it's buffer. Multiple calling to {nameof(GetBufferArray)} isn't allowed.");
-            IsWriting = true;
-#endif
-
-            return ComputeBuffer.BeginWrite<byte>(0, writeCount * TypeSize);
-        }
-
-        public void EndWrite(in int writeCount)
-        {
-#if UNITY_EDITOR || DEVELOPEMENT_BUILD
-            if (!IsWriting)
-                throw new NSpritesException($"{nameof(InstancedProperty)} {ComponentType.GetManagedType().Name} isn't writing to buffer. Calling to {nameof(EndWrite)} before writing to buffer isn't allowed.");
-            IsWriting = false;
-#endif
-            
-            ComputeBuffer.EndWrite<byte>(writeCount * TypeSize);
-        }
-
-        public void Reallocate(in int size, MaterialPropertyBlock materialPropertyBlock)
-        {
-            var stride = ComputeBuffer.stride;
-            ComputeBuffer.Release();
-            ComputeBuffer = new ComputeBuffer(size, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
-            materialPropertyBlock.SetBuffer(PropertyID, ComputeBuffer);
-        }
-#if UNITY_EDITOR
-        public override string ToString()
-        {
-            return $"propID: {PropertyID}, cb_stride: {ComputeBuffer.stride}, cb_capacity: {ComputeBuffer.count}, comp: {ComponentType}";
-        }
-#endif
     }
     #endregion
 
@@ -260,14 +75,13 @@ namespace NSprites
     /// <br>To render sprites it uses <see cref="Graphics.DrawMeshInstancedProcedural"/></br>
     /// <br>Each render archetype is a combination of: </br>
     /// <list type="bullet">
-    /// <item><description><see cref="UnityEngine.Material"/> + <see cref="MaterialPropertyBlock"/> to render sprite entities</description></item>
+    /// <item><description><see cref="Mesh"/> + <see cref="UnityEngine.Material"/> + <see cref="MaterialPropertyBlock"/> to render sprite entities</description></item>
     /// <item><description>Set of <see cref="InstancedProperty"/> to sync data between compute buffers assigned to <see cref="MaterialPropertyBlock"/> and property components</description></item>
     /// <item>int ID to query entities through <see cref="SpriteRenderID"/></item>
     /// </list>
     /// </summary>
     internal class RenderArchetype : IDisposable
     {
-        #region per-chunk jobs
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
         [BurstCompile]
         private struct CalculateChunksDataJob : IJobParallelForBatch
@@ -277,15 +91,15 @@ namespace NSprites
             [WriteOnly][NoAlias] public NativeCounter.ParallelWriter CreatedChunksCapacityCounter;
             [WriteOnly][NoAlias] public NativeCounter.ParallelWriter EntityCounter;
             /// this job only used for reading chunks which separated by <see cref="SpriteRenderID"/> SCD
-            /// <see cref="PinChunksJob"/>, <see cref="PinListedChunksJob"/> writes to <see cref="PropertyPointerChunk"/>
+            /// <see cref="MapChunksJob"/>, <see cref="MapListedChunksJob"/> writes to <see cref="PropertyPointerChunk"/>
             /// here we can be sure we're operating on different chunks because of different SCD
             [ReadOnly][NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<PropertyPointerChunk> PropertyPointerChunk_CTH_RO;
             // don't worry about created / reordered chunks indices list
             // if there is no new chunks, then there will no work with this list (it is intended to be persistent and resized on need)
             // else we already want to fill this lists, because otherwise it means more unnecessary work, we want to avoid extra chunk iteration
-            /// used later by <see cref="PinListedChunksJob"/> and <see cref="PinListedEntitiesJob"/>
+            /// used later by <see cref="MapListedChunksJob"/> and <see cref="MapListedEntitiesJob"/>
             [WriteOnly][NoAlias] public NativeList<int>.ParallelWriter NewChunksIndices;
-            /// used later by <see cref="PinListedEntitiesJob"/>
+            /// used later by <see cref="MapListedEntitiesJob"/>
             [WriteOnly][NoAlias] public NativeList<int>.ParallelWriter ReorderedChunksIndices;
             public uint LastSystemVersion;
 
@@ -314,114 +128,28 @@ namespace NSprites
                 }
             }
         }
-
-        // All "Pin" jobs grab chunk / entity and pin it to compute buffer using PropertyPointerChunk for chunk and PropertyPointer for entity
-        [BurstCompile]
-        private struct PinListedChunksJob : IJob
-        {
-            [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [WriteOnly][NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<PropertyPointerChunk> PropertyPointerChunk_CTH;
-            public int StartingFromIndex;
-            [ReadOnly] public NativeList<int> ChunksIndices;
-
-            public void Execute()
-            {
-                for (var i = 0; i < ChunksIndices.Length; i++)
-                {
-                    var chunk = Chunks[ChunksIndices[i]];
-                    var capacity = chunk.Capacity;
-                    chunk.SetChunkComponentData(ref PropertyPointerChunk_CTH, new PropertyPointerChunk { From = StartingFromIndex, Initialized = true });
-                    StartingFromIndex += capacity;
-                }
-            }
-        }
-        [BurstCompile]
-        private struct PinListedEntitiesJob : IJobParallelForBatch
-        {
-            [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [ReadOnly] public NativeList<int> ChunkIndexes;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<PropertyPointer> PropertyPointer_CTH_Wo;
-            [ReadOnly] public ComponentTypeHandle<PropertyPointerChunk> PropertyPointerChunk_CTH_RO;
-
-            public void Execute(int startIndex, int count)
-            {
-                var toIndex = startIndex + count;
-                for (var i = startIndex; i < toIndex; i++)
-                {
-                    var chunk = Chunks[ChunkIndexes[i]];
-                    var chunkPointer = chunk.GetChunkComponentData(ref PropertyPointerChunk_CTH_RO);
-                    var entityIndexes = chunk.GetNativeArray(ref PropertyPointer_CTH_Wo);
-                    for (var entityIndex = 0; entityIndex < entityIndexes.Length; entityIndex++)
-                        entityIndexes[entityIndex] = new PropertyPointer { bufferIndex = chunkPointer.From + entityIndex };
-                }
-            }
-        }
-        [BurstCompile]
-        private struct PinChunksJob : IJob
-        {
-            [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [WriteOnly][NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<PropertyPointerChunk> PropertyPointerChunk_CTH;
-
-            public void Execute()
-            {
-                var index = 0;
-                for (var i = 0; i < Chunks.Length; i++)
-                {
-                    var chunk = Chunks[i];
-                    var capacity = chunk.Capacity;
-                    chunk.SetChunkComponentData(ref PropertyPointerChunk_CTH, new PropertyPointerChunk { From = index, Initialized = true });
-                    index += capacity;
-                }
-            }
-        }
-        [BurstCompile]
-        private struct PinEntitiesJob : IJobParallelForBatch
-        {
-            [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [NativeDisableContainerSafetyRestriction] public ComponentTypeHandle<PropertyPointer> PropertyPointer_CTH;
-            [ReadOnly] public ComponentTypeHandle<PropertyPointerChunk> PropertyPointerChunk_CTH;
-
-            public void Execute(int startIndex, int count)
-            {
-                var toIndex = startIndex + count;
-                for (var chunkIndex = startIndex; chunkIndex < toIndex; chunkIndex++)
-                {
-                    var chunk = Chunks[chunkIndex];
-                    var chunkPointer = chunk.GetChunkComponentData(ref PropertyPointerChunk_CTH);
-                    var entityIndexes = chunk.GetNativeArray(ref PropertyPointer_CTH);
-                    for (var entityIndex = 0; entityIndex < entityIndexes.Length; entityIndex++)
-                        entityIndexes[entityIndex] = new PropertyPointer { bufferIndex = chunkPointer.From + entityIndex };
-                }
-            }
-        }
 #endif
-#endregion
+
         /// id to query entities using <see cref="SpriteRenderID"/>
         internal readonly int ID;
-
         internal readonly Material Material;
         private readonly Mesh _mesh;
         private readonly Bounds _bounds;
         private readonly MaterialPropertyBlock _materialPropertyBlock;
-
-        // minimum additional capacity we want allocate on exceed
+        /// <summary> minimum additional capacity we want allocate on exceed </summary>
         private readonly int _minCapacityStep;
 
         private int _entityCount;
 
         /// <summary>
         /// Contains all kind of properties one after another. Properties can be accessed by theirs update mode
-        /// using <see cref="_propertiesModeCountAndOffsets"/>. 
         /// Here we use all kinds of update mode: 
         ///     <see cref="PropertyUpdateMode.Reactive"/> /
         ///     <see cref="PropertyUpdateMode.Static"/> /
         ///     <see cref="PropertyUpdateMode.EachUpdate"/>
         /// </summary>
-        internal readonly InstancedProperty[] Properties;
-        /// used to collect property <see cref="JobHandle"/> during data sync.
-        private PropertyHandleCollector _handleCollector;
-        /// <summary> Contains count of properties for each <see cref="PropertyUpdateMode"/>. c0 - counts, c1 - offsets</summary>
-        private readonly int3x2 _propertiesModeCountAndOffsets;
+        //internal readonly InstancedProperty[] Properties;
+        internal readonly PropertiesContainer PropertiesContainer = new ();
 
         // EUP  - Each Update Properties
         // SP   - Static Properties
@@ -429,35 +157,26 @@ namespace NSprites
 
 #if !NSPRITES_EACH_UPDATE_DISABLE
         /// <summary> Contains how much space allocated / used / can be used in <see cref="PropertyUpdateMode.EachUpdate"/> and <see cref="PropertyUpdateMode.Static"/> properties</summary>
-        private PropertySpaceCounter _perEntityPropertiesSpaceCounter;
+        private AllocationCounter _perEntityPropertiesSpaceCounter;
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
         private readonly bool _shouldHandlePropertiesByEntity;
 #endif
-        internal int EUP_Count => _propertiesModeCountAndOffsets.c0.y;
-        internal int EUP_Offset => _propertiesModeCountAndOffsets.c1.y;
 #endif
 
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
-        /// each-update property for <see cref="PropertyPointer"/> data. Have this separately from <see cref="Properties"/> to not pass unnecessary handles to each-update properties + let them be disableable
+        /// each-update property for <see cref="PropertyPointer"/> data. Have this separately from <see cref="PropertiesContainer"/> to not pass unnecessary handles to each-update properties + let them be disableable
         internal readonly InstancedProperty PointersProperty;
 #if !NSPRITES_EACH_UPDATE_DISABLE
         /// <summary> should archetype work with <see cref="PropertyUpdateMode.Reactive"/> or <see cref="PropertyUpdateMode.Static"/>
         /// because such update require working with <see cref="PropertyPointerChunk"/> and <see cref="PropertyPointer"/> data </summary>
-        private readonly bool _shouldHandlePropertiesByChunk;
+        private readonly bool _shouldHandleReactiveOrStaticProperties;
 #endif
         /// <summary> Contains how much space <b>allocated / used / can be used</b> in <see cref="PropertyUpdateMode.Reactive"/> and <see cref="PropertyUpdateMode.Static"/> properties, because both use chunk iteration</summary>
-        internal PropertySpaceCounter PerChunkPropertiesSpaceCounter;
+        internal AllocationCounter ReactiveAndStaticAllocationCounter;
         private ReusableNativeList<int> _createdChunksIndexes_RNL;
         private ReusableNativeList<int> _reorderedChunksIndexes_RNL;
+        // TODO: expose this for client code
         internal const int MinIndicesPerJobCount = 8;
-#endif
-#if !NSPRITES_STATIC_DISABLE
-        internal int SP_Count => _propertiesModeCountAndOffsets.c0.z;
-        internal int SP_Offset => _propertiesModeCountAndOffsets.c1.z;
-#endif
-#if !NSPRITES_REACTIVE_DISABLE
-        /// <see cref="PropertyUpdateMode.Reactive"/> properties from index is always 0, so there is no RP_Offset
-        internal int RP_Count => _propertiesModeCountAndOffsets.c0.x;
 #endif
 
         public RenderArchetype(Material material, Mesh mesh, in Bounds bounds, IReadOnlyList<PropertyData> propertyDataSet
@@ -482,80 +201,57 @@ namespace NSprites
             _minCapacityStep = minCapacityStep;
 
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
-            PerChunkPropertiesSpaceCounter.Capacity = preallocatedSpace;
+            ReactiveAndStaticAllocationCounter.Allocated = preallocatedSpace;
             _createdChunksIndexes_RNL = new ReusableNativeList<int>(0, Allocator.Persistent);
             _reorderedChunksIndexes_RNL = new ReusableNativeList<int>(0, Allocator.Persistent);
             PointersProperty = new InstancedProperty(Shader.PropertyToID(PropertyPointer.PropertyName), preallocatedSpace, sizeof(int), ComponentType.ReadOnly<PropertyPointer>());
 #endif
 #if !NSPRITES_EACH_UPDATE_DISABLE
-            _perEntityPropertiesSpaceCounter.Capacity = preallocatedSpace;
+            _perEntityPropertiesSpaceCounter.Allocated = preallocatedSpace;
 #endif
 
             #region initialize properties
-            Properties = new InstancedProperty[propertyDataSet.Count];
-            var propertiesInternalDataSet = new NativeArray<ComponentType>(Properties.Length, Allocator.Temp);
-            // 1st iteration fetch property data from map and count all types of update modes
-            for (var propIndex = 0; propIndex < Properties.Length; propIndex++)
+            for (var propIndex = 0; propIndex < propertyDataSet.Count; propIndex++)
             {
                 var propData = propertyDataSet[propIndex];
-#if UNITY_EDITOR
-                if (!propertyMap.ContainsKey(propData.PropertyID))
-                    throw new NSpritesException($"There is no data in map for {propData.PropertyID} shader's property ID. You can look at Window -> Entities -> NSprites to see what properties registered at a time.");
-#endif
-                var propInternalData = propertyMap[propData.PropertyID];
-                propertiesInternalDataSet[propIndex] = propInternalData;
-                _propertiesModeCountAndOffsets.c0[(int)propData.UpdateMode]++;
-            }
-            // 2nd iteration initialize Properties with known indices offsets
-            _propertiesModeCountAndOffsets.c1 = new int3(0, _propertiesModeCountAndOffsets.c0.x, _propertiesModeCountAndOffsets.c0.x + _propertiesModeCountAndOffsets.c0.y);
-            var offsets = _propertiesModeCountAndOffsets.c1; // copy to be able to increment
-            for (var propIndex = 0; propIndex < Properties.Length; propIndex++)
-            {
-                var propData = propertyDataSet[propIndex];
-                var propType = propertiesInternalDataSet[propIndex];
+                var propType = propertyMap[propData.PropertyID];
                 var prop = new InstancedProperty(propData.PropertyID, preallocatedSpace, UnsafeUtility.SizeOf(propType.GetManagedType()), propType);
-                Properties[offsets[(int)propData.UpdateMode]++] = prop;
+
+                PropertiesContainer.AddProperty(prop, propData.UpdateMode);
             }
+            
+            // extra 1 for pointer property
+            PropertiesContainer.ConstructHandles(1);
+            
 #if !NSPRITES_EACH_UPDATE_DISABLE && (!NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE)
             // we want update properties by chunk only if archetype has any Reactive or Static properties
-            _shouldHandlePropertiesByChunk = _propertiesModeCountAndOffsets.c0.x != 0 || _propertiesModeCountAndOffsets.c0.z != 0;
+            _shouldHandleReactiveOrStaticProperties = PropertiesContainer.HasPropertiesWithMode(PropertyUpdateMode.Reactive) || PropertiesContainer.HasPropertiesWithMode(PropertyUpdateMode.Static);
 #endif
-            var conditionalCount =
-#if NSPRITES_STATIC_DISABLE
-            0;
-#else
-            SP_Count;
-#endif
-            var handleCollectorCapacity = Properties.Length;
-#if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
-            // +1 for pointers property
-            handleCollectorCapacity++;
-#endif
-            _handleCollector = new(handleCollectorCapacity, conditionalCount, Allocator.Persistent);
 
 #if !NSPRITES_EACH_UPDATE_DISABLE && (!NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE)
             // we want update properties by entity only if archetype has any EachUpdate properties
-            _shouldHandlePropertiesByEntity = EUP_Count != 0;
+            _shouldHandlePropertiesByEntity = PropertiesContainer.HasPropertiesWithMode(PropertyUpdateMode.EachUpdate);
 #endif
 #endregion
         }
+        
         public JobHandle ScheduleUpdate(in SystemData systemData, ref SystemState systemState)
         {
             // we need to use this method every new frame, because query somehow gets invalidated
             var query = systemData.Query;
             query.SetSharedComponentFilter(new SpriteRenderID { id = ID });
 
-            _handleCollector.Reset();
+            PropertiesContainer.ResetHandles();
 
             #region handle reactive / static properties
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
             NativeArray<ArchetypeChunk> chunksArray = default;
 #if !NSPRITES_EACH_UPDATE_DISABLE
-            if (_shouldHandlePropertiesByChunk)
+            if (_shouldHandleReactiveOrStaticProperties)
             {
 #endif
                 #region chunk gather data
-                // TODO: try to avoid sync point
+                // TODO: try to avoid sync point. To do so we can obtain NativeList instead of NativeArray
                 chunksArray = query.ToArchetypeChunkArray(Allocator.TempJob);
 
                 var overallCapacityCounter = new NativeCounter(Allocator.TempJob);
@@ -586,67 +282,62 @@ namespace NSprites
 #endregion
 
                 #region update capacity, sync data
-                // TODO: check if createdChunksCapacity is really needed, because in both cases I think neededOverallCapacity will be exceeded
                 var neededOverallCapacity = overallCapacityCounter.Count;
                 var createdChunksCapacity = createdChunksCapacityCounter.Count;
-                var overallCapacityExceeded = neededOverallCapacity > PerChunkPropertiesSpaceCounter.Capacity;
+                var overallCapacityExceeded = neededOverallCapacity > ReactiveAndStaticAllocationCounter.Allocated;
+                
                 // if overall capacity exceeds current capacity OR
                 // there is new chunks and theirs sum capacity exceeds free space we have currently
                 // then we need to reallocate all per-property compute buffers and reassign chunks / entities indexes
-                if (overallCapacityExceeded || createdChunksCapacity > PerChunkPropertiesSpaceCounter.UnusedCapacity)
+                
+                // NOTE: allocated space can be enough at the same time with unused space isn't for new chunks.
+                // this is because chunks may be destroyed but we don't track it so summary capacity will decrease,
+                // but freed space has arbitrary position if buffer with arbitrary length, so we can't reuse it until full chunks remap
+                if (overallCapacityExceeded || createdChunksCapacity > ReactiveAndStaticAllocationCounter.Unused)
                 {
                     // reassign all chunk's / entity's indices
                     // this job will iterate through chunks one by one and increase theirs `from` indices
                     // execution can't be parallel because calculation is dependent, so this is weakest part (actually could)
                     // this part goes before buffer's reallocation because it is just work with indices we already now
-                    var pinHandle = new PinChunksJob
+                    var mapHandle = new MapChunksJob
                     {
                         Chunks = chunksArray,
                         PropertyPointerChunk_CTH = systemData.PropertyPointerChunk_CTH_RW
                     }.Schedule();
-                    pinHandle = new PinEntitiesJob
+                    mapHandle = new MapEntitiesJob
                     {
                         Chunks = chunksArray,
                         PropertyPointerChunk_CTH = systemData.PropertyPointerChunk_CTH_RO,
                         PropertyPointer_CTH = systemData.PropertyPointer_CTH_RW
-                    }.ScheduleBatch(chunksArray.Length, MinIndicesPerJobCount, pinHandle);
+                    }.ScheduleBatch(chunksArray.Length, MinIndicesPerJobCount, mapHandle);
 
                     // from this point we should pass inputDeps, because next we work with components which might be touched outside
-                    var preReadDependency = JobHandle.CombineDependencies(pinHandle, systemData.InputDeps);
+                    var preReadDependency = JobHandle.CombineDependencies(mapHandle, systemData.InputDeps);
 
                     #region local methods
                     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                    void ScheduleLoadAllChunkData(InstancedProperty property, in int propIndex, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH_RO, DynamicComponentTypeHandle property_DCTH, in JobHandle inputDeps)
-                    {
-                        var handle = property.LoadAllChunkData(chunksArray, propertyPointerChunk_CTH_RO, property_DCTH, PerChunkPropertiesSpaceCounter.Count, inputDeps);
-                        _handleCollector.Add(handle, propIndex);
-                    }
+                    void SyncByChunks(InstancedProperty property, in ComponentTypeHandle<PropertyPointerChunk> propertyPointerChunk_CTH_RO, DynamicComponentTypeHandle property_DCTH, in JobHandle inputDeps)
+                        => PropertiesContainer.AddHandle(property.SyncByChunks(chunksArray, propertyPointerChunk_CTH_RO, property_DCTH, ReactiveAndStaticAllocationCounter.Used, inputDeps));
+
                     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                    void ReallocateAndReloadData(int fromPropIndex, int toPropIndex, in SystemData systemData, ref SystemState systemState)
+                    void ReallocateAndSyncManyByChunks(IEnumerable<InstancedProperty> props, in SystemData systemData, ref SystemState systemState)
                     {
-                        for (var propIndex = fromPropIndex; propIndex < toPropIndex; propIndex++)
+                        foreach (var prop in props)
                         {
-                            var property = Properties[propIndex];
-                            property.Reallocate(PerChunkPropertiesSpaceCounter.Capacity, _materialPropertyBlock);
-                            ScheduleLoadAllChunkData(property, propIndex, systemData.PropertyPointerChunk_CTH_RO, systemState.GetDynamicComponentTypeHandle(property.ComponentType), preReadDependency);
+                            prop.Reallocate(ReactiveAndStaticAllocationCounter.Allocated, _materialPropertyBlock);
+                            SyncByChunks(prop, systemData.PropertyPointerChunk_CTH_RO, systemState.GetDynamicComponentTypeHandle(prop.ComponentType), preReadDependency);
                         }
                     }
                     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                    void ReloadData(int fromPropIndex, int toPropIndex, in SystemData systemData, ref SystemState systemState)
+                    void SyncManyByChunks(IEnumerable<InstancedProperty> props, in SystemData systemData, ref SystemState systemState)
                     {
-                        for (var propIndex = fromPropIndex; propIndex < toPropIndex; propIndex++)
-                        {
-                            var prop = Properties[propIndex];
-                            ScheduleLoadAllChunkData(prop, propIndex, systemData.PropertyPointerChunk_CTH_RO, systemState.GetDynamicComponentTypeHandle(prop.ComponentType), preReadDependency);
-                        }
+                        foreach (var prop in props)
+                            SyncByChunks(prop, systemData.PropertyPointerChunk_CTH_RO, systemState.GetDynamicComponentTypeHandle(prop.ComponentType), preReadDependency);
                     }
                     #endregion
 
-                    // set to true because here we will update static properties, which are conditional
-                    _handleCollector.IncludeConditional = true;
-
                     // since here we fully reallocate our buffers we can retrieve reactive / static buffers count as needed capacity
-                    PerChunkPropertiesSpaceCounter.Count = neededOverallCapacity;
+                    ReactiveAndStaticAllocationCounter.Used = neededOverallCapacity;
 
                     // if we have overall capacity exceed then we need to extend our buffers
                     // so do reallocate + reload all data for Reactive / Static props
@@ -655,31 +346,41 @@ namespace NSprites
                         // reallocate compute buffers
                         // here we calculate new capacity no matter what the reason was to reallocate buffers
                         // new capacity depends on how much new space we need, but this space jump can't be lower then min capacity step
-                        PerChunkPropertiesSpaceCounter.Capacity += math.max(_minCapacityStep, neededOverallCapacity - PerChunkPropertiesSpaceCounter.Capacity);
+                        // TODO: move to NSprites utils
+                        ReactiveAndStaticAllocationCounter.Allocated += math.max(_minCapacityStep, neededOverallCapacity - ReactiveAndStaticAllocationCounter.Allocated);
+                        
+                        // recall: capacity actually exceeded, so
+                        // * reallocate + sync by query (entity-by-entity) pointers prop
+                        // * reallocate + sync by each chunk reactive / static properties
+
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
                         // reallocate and load all property pointers data
-                        PointersProperty.Reallocate(PerChunkPropertiesSpaceCounter.Capacity, _materialPropertyBlock);
-                        ScheduleLoadAllQueryData(PointersProperty, _handleCollector.PropertyPointerIndex, systemState.GetDynamicComponentTypeHandle(PointersProperty.ComponentType), ref query, preReadDependency);
+                        PointersProperty.Reallocate(ReactiveAndStaticAllocationCounter.Allocated, _materialPropertyBlock);
+                        SyncByQuery(PointersProperty, systemState.GetDynamicComponentTypeHandle(PointersProperty.ComponentType), ref query, preReadDependency);
 #endif
 #if !NSPRITES_REACTIVE_DISABLE
-                        ReallocateAndReloadData(0, RP_Count, systemData, ref systemState);
+                        ReallocateAndSyncManyByChunks(PropertiesContainer.Reactive, systemData, ref systemState);
 #endif
 #if !NSPRITES_STATIC_DISABLE
-                        ReallocateAndReloadData(SP_Offset, SP_Offset + SP_Count, systemData, ref systemState);
+                        ReallocateAndSyncManyByChunks(PropertiesContainer.Static, systemData, ref systemState);
 #endif
                     }
                     // if there is no exceed then just reload all data without any reallocation
                     else
                     {
+                        // recall: allocated space in enough, but no place for new chunks, so full reload needed, so just:
+                        // * sync pointer prop by query
+                        // * sync reactive / static props by every chunk
+
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
                         // load all property pointer data
-                        ScheduleLoadAllQueryData(PointersProperty, _handleCollector.PropertyPointerIndex, systemState.GetDynamicComponentTypeHandle(PointersProperty.ComponentType), ref query, preReadDependency);
+                        SyncByQuery(PointersProperty, systemState.GetDynamicComponentTypeHandle(PointersProperty.ComponentType), ref query, preReadDependency);
 #endif
 #if !NSPRITES_REACTIVE_DISABLE
-                        ReloadData(0, RP_Count, systemData, ref systemState);
+                        SyncManyByChunks(PropertiesContainer.Reactive, systemData, ref systemState);
 #endif
 #if !NSPRITES_STATIC_DISABLE
-                        ReloadData(SP_Offset, SP_Offset + SP_Count, systemData, ref systemState);
+                        SyncManyByChunks(PropertiesContainer.Static, systemData, ref systemState);
 #endif
                     }
                 }
@@ -689,7 +390,7 @@ namespace NSprites
                     // process chunks which ONLY got reordered NOT new chunks, which stored separately
                     // here we want to reassign entities indexes for chunks which have got / lost entity
                     // since that is the only job which can write to reordered chunk's property pointer we can safely schedule it independently
-                    var pinHandle = new PinListedEntitiesJob
+                    var mapHandle = new MapListedEntitiesJob
                     {
                         Chunks = chunksArray,
                         ChunkIndexes = reorderedChunksIndexes,
@@ -703,47 +404,48 @@ namespace NSprites
                     {
                         // assign new chunks indexes starting from previous count
                         // since that is only job which can write to created chunk's property pointer we can safely schedule it independently
-                        var createdChunksPinHandle = new PinListedChunksJob
+                        var createdChunksMapHandle = new MapListedChunksJob
                         {
                             Chunks = chunksArray,
-                            PropertyPointerChunk_CTH = systemData.PropertyPointerChunk_CTH_RW,
                             ChunksIndices = createdChunksIndices,
-                            StartingFromIndex = PerChunkPropertiesSpaceCounter.Count
+                            PropertyPointerChunk_CTH = systemData.PropertyPointerChunk_CTH_RW,
+                            StartingFromIndex = ReactiveAndStaticAllocationCounter.Used
                         }.Schedule();
 
                         // don't forget to update count with new chunks capacity even if we have enough space
-                        PerChunkPropertiesSpaceCounter.Count += createdChunksCapacity;
+                        ReactiveAndStaticAllocationCounter.Used += createdChunksCapacity;
 
-                        createdChunksPinHandle = new PinListedEntitiesJob
+                        createdChunksMapHandle = new MapListedEntitiesJob
                         {
                             Chunks = chunksArray,
                             ChunkIndexes = createdChunksIndices,
                             PropertyPointerChunk_CTH_RO = systemData.PropertyPointerChunk_CTH_RO,
                             PropertyPointer_CTH_Wo = systemData.PropertyPointer_CTH_RW
-                        }.ScheduleBatch(createdChunksIndices.Length, MinIndicesPerJobCount, createdChunksPinHandle);
+                        }.ScheduleBatch(createdChunksIndices.Length, MinIndicesPerJobCount, createdChunksMapHandle);
 
-                        pinHandle = JobHandle.CombineDependencies(pinHandle, createdChunksPinHandle);
+                        mapHandle = JobHandle.CombineDependencies(mapHandle, createdChunksMapHandle);
                     }
 
                     // from this point we should pass inputDeps, because next we work with components which might be touched outside
-                    var preReadDependency = JobHandle.CombineDependencies(systemData.InputDeps, pinHandle);
+                    var preReadDependency = JobHandle.CombineDependencies(systemData.InputDeps, mapHandle);
 
                     // finally because there was no need to reallocate buffers we can: 
                     // 0. just update changed Reactive props
 #if !NSPRITES_REACTIVE_DISABLE
-                    for (var propIndex = 0; propIndex < RP_Count; propIndex++)
+                    foreach (var prop in PropertiesContainer.Reactive)
                     {
-                        var property = Properties[propIndex];
-                        var handle = property.UpdateOnChangeChunkData
+                        // recall: capacity is fully enough so no reallocation needed nor full resync so just:
+                        // * sync reactive props by each CHANGED chunk
+                        var handle = prop.SyncByChangedChunks
                         (
                             chunksArray,
                             systemData.PropertyPointerChunk_CTH_RO,
-                            systemState.GetDynamicComponentTypeHandle(property.ComponentType),
-                            PerChunkPropertiesSpaceCounter.Count,
+                            systemState.GetDynamicComponentTypeHandle(prop.ComponentType),
+                            ReactiveAndStaticAllocationCounter.Used,
                             systemData.LastSystemVersion,
                             preReadDependency
                         );
-                        _handleCollector.Add(handle, propIndex);
+                        PropertiesContainer.AddHandle(handle);
                     }
 #endif
 #if !NSPRITES_STATIC_DISABLE
@@ -751,34 +453,32 @@ namespace NSprites
                     // for each such property we want to schedule job per each list of indices, so we need to combine dependencies every iteration
                     if (reorderedChunksIndexes.Length > 0 || createdChunksIndices.Length > 0)
                     {
-                        // set to true because here we will update static properties, which are conditional
-                        _handleCollector.IncludeConditional = true;
-
-                        for (var propIndex = SP_Offset; propIndex < SP_Offset + SP_Count; propIndex++)
+                        foreach (var prop in PropertiesContainer.Static)
                         {
-                            var property = Properties[propIndex];
-                            var handle = property.UpdateCreatedAndReorderedChunkData
+                            // recall: capacity is fully enough so no reallocation needed nor full resync so just:
+                            // * sync static props by each CREATED / REORDERED chunk
+                            var handle = prop.SyncByCreatedAndReorderedChunks
                             (
                                 chunksArray,
                                 reorderedChunksIndexes,
                                 createdChunksIndices,
                                 systemData.PropertyPointerChunk_CTH_RO,
-                                systemState.GetDynamicComponentTypeHandle(property.ComponentType),
-                                PerChunkPropertiesSpaceCounter.Count,
+                                systemState.GetDynamicComponentTypeHandle(prop.ComponentType),
+                                ReactiveAndStaticAllocationCounter.Used,
                                 preReadDependency
                             );
-                            _handleCollector.Add(handle, propIndex);
+                            PropertiesContainer.AddHandle(handle);
                         }
                     }
 #endif
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
                     // load all property pointer data
-                    ScheduleLoadAllQueryData(PointersProperty, _handleCollector.PropertyPointerIndex, systemState.GetDynamicComponentTypeHandle(PointersProperty.ComponentType), ref query, preReadDependency);
+                    SyncByQuery(PointersProperty, systemState.GetDynamicComponentTypeHandle(PointersProperty.ComponentType), ref query, preReadDependency);
 #endif
                 }
                 
 #if UNITY_EDITOR || DEVELOPEMENT_BUILD
-                PerChunkPropertiesSpaceCounter.Verify(neededOverallCapacity);
+                ReactiveAndStaticAllocationCounter.Verify(neededOverallCapacity);
 #endif
                 #endregion
 
@@ -808,37 +508,33 @@ namespace NSprites
                 _entityCount = query.CalculateEntityCount();
 #endif
                 // reallocate buffers if capacity exceeded and load all data for each-update and static properties
-                if (_perEntityPropertiesSpaceCounter.Capacity < _entityCount)
+                if (_perEntityPropertiesSpaceCounter.Allocated < _entityCount)
                 {
-                    _perEntityPropertiesSpaceCounter.Capacity += math.max(_minCapacityStep, _entityCount - _perEntityPropertiesSpaceCounter.Capacity);
+                    _perEntityPropertiesSpaceCounter.Allocated += math.max(_minCapacityStep, _entityCount - _perEntityPropertiesSpaceCounter.Allocated);
                     // reallocate and reload all data for each-update properties
-                    for (var propIndex = EUP_Offset; propIndex < EUP_Offset + EUP_Count; propIndex++)
+                    foreach (var prop in PropertiesContainer.EachUpdate)
                     {
-                        var property = Properties[propIndex];
-                        property.Reallocate(_perEntityPropertiesSpaceCounter.Capacity, _materialPropertyBlock);
-                        ScheduleLoadAllQueryData(property, propIndex, systemState.GetDynamicComponentTypeHandle(property.ComponentType), ref query, systemData.InputDeps);
+                        prop.Reallocate(_perEntityPropertiesSpaceCounter.Allocated, _materialPropertyBlock);
+                        SyncByQuery(prop, systemState.GetDynamicComponentTypeHandle(prop.ComponentType), ref query, systemData.InputDeps);
                     }
                 }
                 // if there was no exceed just load all each-update properties data
                 else
-                    for (var propIndex = EUP_Offset; propIndex < EUP_Offset + EUP_Count; propIndex++)
-                    {
-                        var property = Properties[propIndex];
-                        ScheduleLoadAllQueryData(property, propIndex, systemState.GetDynamicComponentTypeHandle(property.ComponentType), ref query, systemData.InputDeps);
-                    }
+                    foreach (var prop in PropertiesContainer.EachUpdate)
+                        SyncByQuery(prop, systemState.GetDynamicComponentTypeHandle(prop.ComponentType), ref query, systemData.InputDeps);
 
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
             }
 #endif
-
-            _perEntityPropertiesSpaceCounter.Count = _entityCount;
+            // TODO: remove this, seems like it is never used, because used and allocated is always the same in EachUpdate logic
+            _perEntityPropertiesSpaceCounter.Used = _entityCount;
 #endif
             #endregion
 
-            var outputHandle = _handleCollector.GetCombined();
+            var outputHandle = PropertiesContainer.GeneralHandle;
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
 #if !NSPRITES_EACH_UPDATE_DISABLE
-            if (_shouldHandlePropertiesByChunk)
+            if (_shouldHandleReactiveOrStaticProperties)
 #endif
             chunksArray.Dispose(outputHandle);
 #endif
@@ -846,48 +542,33 @@ namespace NSprites
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ScheduleLoadAllQueryData(InstancedProperty property, in int propIndex, in DynamicComponentTypeHandle property_DCTH, ref EntityQuery query, in JobHandle inputDeps)
-        {
-            _handleCollector.Add(property.LoadAllQueryData(ref query, property_DCTH, _entityCount, inputDeps), propIndex);
-        }
+        private void SyncByQuery(InstancedProperty property, in DynamicComponentTypeHandle property_DCTH, ref EntityQuery query, in JobHandle inputDeps) 
+            => PropertiesContainer.AddHandle(property.SyncByQuery(ref query, property_DCTH, _entityCount, inputDeps));
+
         /// <summary>Forces complete all properties update jobs. Call it after <see cref="ScheduleUpdate"/> and before <see cref="Draw"/> method to ensure all data is updated.</summary>
         private void CompleteUpdate()
         {
 #if !NSPRITES_REACTIVE_DISABLE
             // complete reactive properties
-            for (var propIndex = 0; propIndex < RP_Count; propIndex++)
-            {
-                _handleCollector[propIndex].Complete();
-                Properties[propIndex].EndWrite(PerChunkPropertiesSpaceCounter.Count);
-            }
+            foreach (var props in PropertiesContainer.Reactive)
+                props.Complete();
 #endif
 #if !NSPRITES_EACH_UPDATE_DISABLE
             // complete each-update properties
-            for (var propIndex = EUP_Offset; propIndex < EUP_Offset + EUP_Count; propIndex++)
-            {
-                _handleCollector[propIndex].Complete();
-                Properties[propIndex].EndWrite(_perEntityPropertiesSpaceCounter.Count);
-            }
+            foreach (var props in PropertiesContainer.EachUpdate)
+                props.Complete();
 #endif
 #if !NSPRITES_STATIC_DISABLE
-            // if there was update for static properties complete them
-            if (_handleCollector.IncludeConditional)
-            {
-                for (var propIndex = SP_Offset; propIndex < SP_Offset + SP_Count; propIndex++)
-                {
-                    _handleCollector[propIndex].Complete();
-                    Properties[propIndex].EndWrite(PerChunkPropertiesSpaceCounter.Count);
-                }
-            }
+            // complete static properties
+            foreach (var props in PropertiesContainer.Static)
+                props.Complete();
 #endif
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
-            if (_shouldHandlePropertiesByChunk)
-            {
-                _handleCollector[_handleCollector.PropertyPointerIndex].Complete();
-                PointersProperty.EndWrite(_entityCount);
-            }
+            if (_shouldHandleReactiveOrStaticProperties)
+                PointersProperty.Complete();
 #endif
         }
+        
         /// <summary>Draws instances in quantity based on the number of entities related to this <see cref="RenderArchetype"/>. Call it after <see cref="ScheduleUpdate"/> and <see cref="CompleteUpdate"/>.</summary>
         public void Draw()
         {
@@ -895,8 +576,8 @@ namespace NSprites
                 Graphics.DrawMeshInstancedProcedural(_mesh, 0, Material, _bounds, _entityCount, _materialPropertyBlock);
         }
         
-        /// <summary><inheritdoc cref="CompleteUpdate"/>.
-        /// Then <inheritdoc cref="Draw"/>.</summary>
+        /// <summary><inheritdoc cref="CompleteUpdate"/>
+        /// Then <inheritdoc cref="Draw"/></summary>
         public void CompleteAndDraw()
         {
             CompleteUpdate();
@@ -905,11 +586,9 @@ namespace NSprites
 
         public void Dispose()
         {
-            for (var propIndex = 0; propIndex < Properties.Length; propIndex++)
-                Properties[propIndex].ComputeBuffer.Release();
-            _handleCollector.Dispose();
+            PropertiesContainer.Dispose();
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
-            PointersProperty.ComputeBuffer.Release();
+            PointersProperty.Dispose();
             _createdChunksIndexes_RNL.Dispose();
             _reorderedChunksIndexes_RNL.Dispose();
 #endif

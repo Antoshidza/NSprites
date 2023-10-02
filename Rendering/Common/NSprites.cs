@@ -5,6 +5,7 @@ using System.Reflection;
 using Unity.Entities;
 using System.Runtime.CompilerServices;
 using System.Linq;
+using NSprites.Extensions;
 using Unity.Collections;
 
 namespace NSprites
@@ -159,9 +160,6 @@ namespace NSprites
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static PropertyUpdateMode GetActualMode(in PropertyUpdateMode mode)
         {
-            // early-out for now because another modes causes graphic artifacts
-            return PropertyUpdateMode.EachUpdate;
-            
 #if UNITY_EDITOR
             if (!Application.isPlaying && mode == PropertyUpdateMode.Static)
             {
@@ -218,19 +216,20 @@ namespace NSprites
         /// <summary>
         /// Generate array of <see cref="InstancedProperty"/> and theirs <see cref="PropertyUpdateMode"/> of given <see cref="RenderArchetype"/>
         /// </summary>
-        internal static (InstancedProperty, PropertyUpdateMode)[] GetPropertiesData(this RenderArchetype renderArchetype)
+        internal static IEnumerable<(InstancedProperty, PropertyUpdateMode)> GetPropertiesData(this RenderArchetype renderArchetype)
         {
-            var array = new (InstancedProperty, PropertyUpdateMode)[renderArchetype.Properties.Length];
+            var array = new (InstancedProperty, PropertyUpdateMode)[renderArchetype.PropertiesContainer.GetPropertiesCount()];
+            var index = 0;
 #if !NSPRITES_REACTIVE_DISABLE
-            for (var i = 0; i < renderArchetype.RP_Count; i++)
-                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype.Properties[i], PropertyUpdateMode.Reactive);
+            foreach (var prop in renderArchetype.PropertiesContainer.Reactive)
+                array[index++] = (prop, PropertyUpdateMode.Reactive);
 #endif
 #if !NSPRITES_STATIC_DISABLE
-            for (var i = renderArchetype.SP_Offset; i < renderArchetype.SP_Offset + renderArchetype.SP_Count; i++)
-                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype.Properties[i], PropertyUpdateMode.Static);
+            foreach (var prop in renderArchetype.PropertiesContainer.Static)
+                array[index++] = (prop, PropertyUpdateMode.Static);
 #endif
-            for (var i = renderArchetype.EUP_Offset; i < renderArchetype.EUP_Offset + renderArchetype.EUP_Count; i++)
-                array[i] = new ValueTuple<InstancedProperty, PropertyUpdateMode>(renderArchetype.Properties[i], PropertyUpdateMode.EachUpdate);
+            foreach (var prop in renderArchetype.PropertiesContainer.EachUpdate)
+                array[index++] = (prop, PropertyUpdateMode.Static);
 
             return array;
         }

@@ -1,5 +1,7 @@
 #if (UNITY_EDITOR || DEVELOPEMENT_BUILD) && !NSPRITES_DEBUG_SYSTEM_DISABLE
 using System;
+using System.Linq;
+using NSprites.Extensions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -11,15 +13,15 @@ using UnityEngine.UIElements;
 namespace NSprites
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
-    public partial struct DebugSystem : ISystem
+    public partial struct ValidateRenderArchetypesSystem : ISystem
     {
         [BurstCompile]
         private struct ExtractUniqueArchetypesJob : IJobParallelFor
         {
-            [ReadOnly] public NativeList<ArchetypeChunk> chunks;
-            [WriteOnly] public NativeParallelHashSet<EntityArchetype>.ParallelWriter uniqueArchetypes;
+            [ReadOnly] public NativeList<ArchetypeChunk> Chunks;
+            [WriteOnly] public NativeParallelHashSet<EntityArchetype>.ParallelWriter UniqueArchetypes;
 
-            public void Execute(int index) => uniqueArchetypes.Add(chunks[index].Archetype);
+            public void Execute(int index) => UniqueArchetypes.Add(Chunks[index].Archetype);
         }
 
         /// <summary>
@@ -32,17 +34,17 @@ namespace NSprites
         [BurstCompile]
         private struct ValidateArchetypesJob : IJobParallelFor
         {
-            [ReadOnly] public NativeArray<EntityArchetype> archetypes;
-            [ReadOnly] public ComponentType propertyPointer_CT;
-            [ReadOnly] public ComponentType propertyPointerChunk_CT;
-            [ReadOnly][DeallocateOnJobCompletion] public NativeArray<ComponentType> requiredComponents;
-            [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<bool> hasIssues;
+            [ReadOnly] public NativeArray<EntityArchetype> Archetypes;
+            [ReadOnly] public ComponentType PropertyPointer_Ct;
+            [ReadOnly] public ComponentType PropertyPointerChunk_Ct;
+            [ReadOnly][DeallocateOnJobCompletion] public NativeArray<ComponentType> RequiredComponents;
+            [WriteOnly][NativeDisableParallelForRestriction] public NativeArray<bool> HasIssues;
 
             public void Execute(int chunkIndex)
             {
-                var archetype = archetypes[chunkIndex];
+                var archetype = Archetypes[chunkIndex];
                 var archetypeComponents = archetype.GetComponentTypes(Allocator.Temp);
-                var perChunkIssueOffset = (3 + requiredComponents.Length) * chunkIndex;
+                var perChunkIssueOffset = (3 + RequiredComponents.Length) * chunkIndex;
                 var missAnyComponent = false;
 
                 bool HasComponent(in ComponentType comp)
@@ -53,26 +55,26 @@ namespace NSprites
                     return false;
                 }
 
-                for (int compIndex = 0; compIndex < requiredComponents.Length; compIndex++)
+                for (int compIndex = 0; compIndex < RequiredComponents.Length; compIndex++)
                 {
-                    var missComponent = !HasComponent(requiredComponents[compIndex]);
-                    hasIssues[perChunkIssueOffset + compIndex] = missComponent;
+                    var missComponent = !HasComponent(RequiredComponents[compIndex]);
+                    HasIssues[perChunkIssueOffset + compIndex] = missComponent;
                     missAnyComponent |= missComponent;
                 }
 
-                var hasPropertyPointer = HasComponent(propertyPointer_CT);
-                var hasPropertyPointerChunk = HasComponent(propertyPointerChunk_CT);
+                var hasPropertyPointer = HasComponent(PropertyPointer_Ct);
+                var hasPropertyPointerChunk = HasComponent(PropertyPointerChunk_Ct);
 
-                hasIssues[perChunkIssueOffset + requiredComponents.Length] = hasPropertyPointer && !hasPropertyPointerChunk || !hasPropertyPointer && hasPropertyPointerChunk || missAnyComponent;
-                hasIssues[perChunkIssueOffset + requiredComponents.Length + 1] = hasPropertyPointer && !hasPropertyPointerChunk;
-                hasIssues[perChunkIssueOffset + requiredComponents.Length + 2] = !hasPropertyPointer && hasPropertyPointerChunk;
+                HasIssues[perChunkIssueOffset + RequiredComponents.Length] = hasPropertyPointer && !hasPropertyPointerChunk || !hasPropertyPointer && hasPropertyPointerChunk || missAnyComponent;
+                HasIssues[perChunkIssueOffset + RequiredComponents.Length + 1] = hasPropertyPointer && !hasPropertyPointerChunk;
+                HasIssues[perChunkIssueOffset + RequiredComponents.Length + 2] = !hasPropertyPointer && hasPropertyPointerChunk;
             }
         }
 
         private struct SystemData : IComponentData
         {
-            public EntityQuery renderQuery;
-            public NativeHashSet<EntityArchetype> processedArchetypes;
+            public EntityQuery RenderQuery;
+            public NativeHashSet<EntityArchetype> ProcessedArchetypes;
         }
 
         [BurstDiscard]
@@ -103,18 +105,19 @@ namespace NSprites
         {
             state.EntityManager.AddComponentData(state.SystemHandle, new SystemData 
             { 
-                renderQuery = state.GetEntityQuery(ComponentType.ReadOnly<SpriteRenderID>()),
-                processedArchetypes = new NativeHashSet<EntityArchetype>(1, Allocator.Persistent)
+                RenderQuery = state.GetEntityQuery(ComponentType.ReadOnly<SpriteRenderID>()),
+                ProcessedArchetypes = new NativeHashSet<EntityArchetype>(1, Allocator.Persistent)
             });
 
             EditorGUI.hyperLinkClicked += OnRenderArchetypeLinkClicked;
         }
+        
         public void OnDestroy(ref SystemState state)
         {
             if (!SystemAPI.TryGetSingleton<SystemData>(out var systemData))
                 return;
 
-            systemData.processedArchetypes.Dispose();
+            systemData.ProcessedArchetypes.Dispose();
 
             EditorGUI.hyperLinkClicked -= OnRenderArchetypeLinkClicked;
         }
@@ -127,44 +130,46 @@ namespace NSprites
 
             var chunkValidateHandles = new NativeArray<(JobHandle handle, ValidateArchetypesJob jobData)>(renderArchetypeStorage.RenderArchetypes.Count, Allocator.Temp);
 
-            for (int archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
+            for (var archetypeIndex = 0; archetypeIndex < renderArchetypeStorage.RenderArchetypes.Count; archetypeIndex++)
             {
                 var renderArchetype = renderArchetypeStorage.RenderArchetypes[archetypeIndex];
-                var query = systemData.renderQuery;
+                var query = systemData.RenderQuery;
                 query.SetSharedComponentFilter(new SpriteRenderID { id = renderArchetype.ID });
 
                 var chunks = query.ToArchetypeChunkListAsync(Allocator.TempJob, state.Dependency, out var fetchingChunksHandle);
 
-                var requiredComponents = new NativeArray<ComponentType>(renderArchetype.Properties.Length, Allocator.TempJob);
-                for (int propIndex = 0; propIndex < renderArchetype.Properties.Length; propIndex++)
-                    requiredComponents[propIndex] = renderArchetype.Properties[propIndex].ComponentType;
+                var props = renderArchetype.PropertiesContainer.GetAllProperties().ToArray();
+                var requiredComponents = new NativeArray<ComponentType>(props.Length, Allocator.TempJob);
+                var propIndex = 0;
+                foreach (var prop in props)
+                    requiredComponents[propIndex++] = prop.ComponentType;
 
                 fetchingChunksHandle.Complete();
                 var archetypesHashSet = new NativeParallelHashSet<EntityArchetype>(chunks.Length, Allocator.TempJob);
 
                 var extractUniqueArchetypesJob = new ExtractUniqueArchetypesJob
                 {
-                    chunks = chunks,
-                    uniqueArchetypes = archetypesHashSet.AsParallelWriter()
+                    Chunks = chunks,
+                    UniqueArchetypes = archetypesHashSet.AsParallelWriter()
                 };
                 var extractUniqueArchetypesHandle = extractUniqueArchetypesJob.ScheduleByRef(chunks.Length, 32, state.Dependency);
                 extractUniqueArchetypesHandle.Complete();
                 chunks.Dispose();
 
-                archetypesHashSet.ExceptWith(systemData.processedArchetypes);
+                archetypesHashSet.ExceptWith(systemData.ProcessedArchetypes);
 
                 var uniqueArchetypes = archetypesHashSet.ToNativeArray(Allocator.TempJob);
-                systemData.processedArchetypes.UnionWith(uniqueArchetypes);
+                systemData.ProcessedArchetypes.UnionWith(uniqueArchetypes);
                 archetypesHashSet.Dispose();
                 var issues = new NativeArray<bool>(uniqueArchetypes.Length * (3 + requiredComponents.Length), Allocator.TempJob);
 
                 var validateArchetypesJob = new ValidateArchetypesJob
                 {
-                    archetypes = uniqueArchetypes,
-                    propertyPointer_CT = ComponentType.ReadOnly<PropertyPointer>(),
-                    propertyPointerChunk_CT = ComponentType.ChunkComponentReadOnly<PropertyPointerChunk>(),
-                    hasIssues = issues,
-                    requiredComponents = requiredComponents
+                    Archetypes = uniqueArchetypes,
+                    PropertyPointer_Ct = ComponentType.ReadOnly<PropertyPointer>(),
+                    PropertyPointerChunk_Ct = ComponentType.ChunkComponentReadOnly<PropertyPointerChunk>(),
+                    HasIssues = issues,
+                    RequiredComponents = requiredComponents
                 };
                 chunkValidateHandles[archetypeIndex] = new 
                 (
@@ -175,38 +180,38 @@ namespace NSprites
                 query.ResetFilter();
             }
 
-            for (int renderIndex = 0; renderIndex < renderArchetypeStorage.RenderArchetypes.Count; renderIndex++)
+            for (var renderIndex = 0; renderIndex < renderArchetypeStorage.RenderArchetypes.Count; renderIndex++)
             {
                 var validateResult = chunkValidateHandles[renderIndex];
                 validateResult.handle.Complete();
 
                 var renderArchetype = renderArchetypeStorage.RenderArchetypes[renderIndex];
-                var archetypes = validateResult.jobData.archetypes;
-                var issues = validateResult.jobData.hasIssues;
-                var perArchetypeOffset = validateResult.jobData.requiredComponents.Length + 3;
-                var anyIssuesIndex = validateResult.jobData.requiredComponents.Length;
-                var propCount = renderArchetype.Properties.Length;
+                var archetypes = validateResult.jobData.Archetypes;
+                var issues = validateResult.jobData.HasIssues;
+                var perArchetypeOffset = validateResult.jobData.RequiredComponents.Length + 3;
+                var anyIssuesIndex = validateResult.jobData.RequiredComponents.Length;
+                var propCount = renderArchetype.PropertiesContainer.GetPropertiesCount();
 
                 var issueReport = $"{nameof(RenderArchetype)} {renderArchetype.ID} issue report:\n";
                 var renderHasAnyIssue = false;
 
-                for (int archetypIndex = 0; archetypIndex < archetypes.Length; archetypIndex++)
+                for (var archetypeIndex = 0; archetypeIndex < archetypes.Length; archetypeIndex++)
                 {
-                    if (!issues[anyIssuesIndex + perArchetypeOffset * archetypIndex])
+                    if (!issues[anyIssuesIndex + perArchetypeOffset * archetypeIndex])
                         continue;
 
                     renderHasAnyIssue = true;
 
-                    var archetype = archetypes[archetypIndex];
-                    issueReport += $"\t#{archetypIndex} {nameof(EntityArchetype)} <b><a hash=\"{archetype.StableHash:x}\">{archetype.StableHash:x}</a></b> has next issues:\n";
+                    var archetype = archetypes[archetypeIndex];
+                    issueReport += $"\t#{archetypeIndex} {nameof(EntityArchetype)} <b><a hash=\"{archetype.StableHash:x}\">{archetype.StableHash:x}</a></b> has next issues:\n";
 
-                    for (int propIndex = 0; propIndex < propCount; propIndex++)
-                        if (issues[perArchetypeOffset * archetypIndex + propIndex])
-                            issueReport += $"\t\tMiss <color=red>{renderArchetype.Properties[propIndex].ComponentType.TypeIndex}</color> component\n";
+                    // for (var propIndex = 0; propIndex < propCount; propIndex++)
+                    //     if (issues[perArchetypeOffset * archetypeIndex + propIndex])
+                    //         issueReport += $"\t\tMiss <color=red>{renderArchetype.Properties[propIndex].ComponentType.TypeIndex}</color> component\n";
 
-                    if (issues[perArchetypeOffset * archetypIndex + propCount + 1])
+                    if (issues[perArchetypeOffset * archetypeIndex + propCount + 1])
                         issueReport += $"\t\t<color=red>Has {nameof(PropertyPointer)} but no {nameof(PropertyPointerChunk)}. It shouldn't happen, please, contact developer <a href=\"https://github.com/Antoshidza\">https://github.com/Antoshidza</a></color>\n";
-                    if (issues[perArchetypeOffset * archetypIndex + propCount + 2])
+                    if (issues[perArchetypeOffset * archetypeIndex + propCount + 2])
                         issueReport += $"\t\t<color=red>Has {nameof(PropertyPointerChunk)} but no {nameof(PropertyPointer)}. It shouldn't happen, please, contact developer <a href=\"https://github.com/Antoshidza\">https://github.com/Antoshidza</a></color>\n";
 
                 }
@@ -214,8 +219,8 @@ namespace NSprites
                 if(renderHasAnyIssue)
                     Debug.LogError(new NSpritesException(issueReport));
 
-                validateResult.jobData.hasIssues.Dispose();
-                validateResult.jobData.archetypes.Dispose();
+                validateResult.jobData.HasIssues.Dispose();
+                validateResult.jobData.Archetypes.Dispose();
             }
         }
     }

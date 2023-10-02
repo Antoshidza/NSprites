@@ -202,7 +202,7 @@ namespace NSprites
             renderContainer.text = GetRenderArchetypeTitle(renderArchetype);
         }
         private string GetRenderArchetypeTitle(RenderArchetype renderArchetype) =>
-            $"Render: {renderArchetype.ID} capacity: {renderArchetype.PerChunkPropertiesSpaceCounter.Count} / {renderArchetype.PerChunkPropertiesSpaceCounter.Capacity}";
+            $"Render: {renderArchetype.ID} capacity: {renderArchetype.ReactiveAndStaticAllocationCounter.Used} / {renderArchetype.ReactiveAndStaticAllocationCounter.Allocated}";
         private Foldout DisplayRenderArchetype(RenderArchetype renderArchetype)
         {
             var renderContainer = new Foldout
