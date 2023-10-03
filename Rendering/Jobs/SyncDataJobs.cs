@@ -65,13 +65,7 @@ namespace NSprites
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void WriteData([NoAlias]in NativeArray<byte> data, [NoAlias]in NativeArray<byte> writeArray, [NoAlias]int startCopyToIndex, [NoAlias]int typeSize)
-        {
-            // TODO: add #if NSPRITES_SAFETY
-            if (writeArray.Length - startCopyToIndex * typeSize < data.Length)
-                throw new NSpritesException($"Copied data sequence is out of buffer length\ntype size: {typeSize}, copy length: {data.Length}, buff arr len: {writeArray.Length}, copy index: {startCopyToIndex * typeSize} ({startCopyToIndex})");
-                
-            NativeArray<byte>.Copy(data, 0, writeArray, startCopyToIndex * typeSize, data.Length);
-        }
+            => NativeArray<byte>.Copy(data, 0, writeArray, startCopyToIndex * typeSize, data.Length);
 
         /// <summary> Takes chunks, read theirs <see cref="PropertyPointerChunk"/> and copy theirs component data to output array starting from chunk's range from value </summary>
         [BurstCompile]

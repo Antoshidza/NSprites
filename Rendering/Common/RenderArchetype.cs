@@ -526,7 +526,7 @@ namespace NSprites
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
             }
 #endif
-            // TODO: remove this, seems like it is never used, because used and allocated is always the same in EachUpdate logic
+            // TODO: remove this, seems like it is never used, because `used` and `allocated` is always the same in EachUpdate logic
             _perEntityPropertiesSpaceCounter.Used = _entityCount;
 #endif
             #endregion

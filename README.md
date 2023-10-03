@@ -90,6 +90,26 @@ This sample project covers basics of rendering with NSprites. Use it to get a ma
 * Unity 2022.2+
 * Entities v1.0.0-pre.65+
 
+### [Compatibility](https://github.com/Antoshidza/NSprites/wiki/Compatibility)
+There is few things we should care when talking about using NSprites in real projects. Since this package uses **GPU instancing**
+and `ComputeBuffer` on CPU side with `StructuredBuffer<T>` on GPU side (in shader) to send sprites data, we need platform and Graphics APU support
+this two.
+
+| **Graphics API**                     | **Description**                                             |
+|:-------------------------------------|:------------------------------------------------------------|
+| Direct3D11                           | :warning: partially supported                               |
+| Direct3D12                           | :white_check_mark: supported                                |
+| Vulkan                               | :white_check_mark: supported                                |
+| OpenGLCore                           | :warning: partially supported                               |
+| OpenGLES3                            | :warning: partially supported |
+
+| **Platform** | **Description**                                             |
+|:-------------|:------------------------------------------------------------|
+| PC           | :white_check_mark: supported                                |
+| WebGL        | :no_entry: unsupported                                      |
+| Android      | :grey_question: not fully checked                           |
+| iOS          | :question: not checked                                      |
+
 ### [Install via Package Manager](https://docs.unity3d.com/2021.3/Documentation/Manual/upm-ui-giturl.html)
 * Window -> Package Manager -> + button -> Add package from git url
 * Paste `https://github.com/Antoshidza/NSprites.git`
