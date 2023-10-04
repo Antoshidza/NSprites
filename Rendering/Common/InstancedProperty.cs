@@ -31,12 +31,13 @@ namespace NSprites
         /// <summary> Cached component type + system to retrieve <see cref="DynamicComponentTypeHandle"/> </summary>
         public ComponentType ComponentType { get; }
 
-        public InstancedProperty(in int propertyID, in int count, in int stride, in ComponentType componentType)
+        public InstancedProperty(in int propertyID, in int bufferLength, in int bufferStride, in ComponentType componentType, MaterialPropertyBlock materialPropertyBlock)
         {
             PropertyID = propertyID;
             ComponentType = componentType;
 
-            ComputeBuffer = new ComputeBuffer(count, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
+            ComputeBuffer = new ComputeBuffer(bufferLength, bufferStride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
+            materialPropertyBlock.SetBuffer(PropertyID, ComputeBuffer);
         }
         
 #if !NSPRITES_REACTIVE_DISABLE || !NSPRITES_STATIC_DISABLE
@@ -153,11 +154,11 @@ namespace NSprites
         }
 
         /// <summary> Reallocate <see cref="ComputeBuffer"/> with new size and previous stride (tmp) and assign buffer to passed <see cref="MaterialPropertyBlock"/> </summary>
-        public void Reallocate(in int length, MaterialPropertyBlock materialPropertyBlock)
+        public void Reallocate(in int bufferLength, MaterialPropertyBlock materialPropertyBlock)
         {
             var stride = ComputeBuffer.stride;
             ComputeBuffer.Release();
-            ComputeBuffer = new ComputeBuffer(length, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
+            ComputeBuffer = new ComputeBuffer(bufferLength, stride, ComputeBufferType.Default, ComputeBufferMode.SubUpdates);
             materialPropertyBlock.SetBuffer(PropertyID, ComputeBuffer);
         }
 

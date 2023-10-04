@@ -21,7 +21,7 @@ public class PropertyContainerTests
         Assert.NotNull(container[PropertyUpdateMode.Reactive]);
         Assert.NotNull(container[PropertyUpdateMode.Static]);
 
-        var mockProperty = new InstancedProperty(0, 1, 4, default);
+        var mockProperty = new InstancedProperty(0, 1, 4, default, new());
         
         container.AddProperty(mockProperty, PropertyUpdateMode.EachUpdate);
         

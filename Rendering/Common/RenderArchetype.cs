@@ -204,7 +204,7 @@ namespace NSprites
             ReactiveAndStaticAllocationCounter.Allocated = preallocatedSpace;
             _createdChunksIndexes_RNL = new ReusableNativeList<int>(0, Allocator.Persistent);
             _reorderedChunksIndexes_RNL = new ReusableNativeList<int>(0, Allocator.Persistent);
-            PointersProperty = new InstancedProperty(Shader.PropertyToID(PropertyPointer.PropertyName), preallocatedSpace, sizeof(int), ComponentType.ReadOnly<PropertyPointer>());
+            PointersProperty = new InstancedProperty(Shader.PropertyToID(PropertyPointer.PropertyName), preallocatedSpace, sizeof(int), ComponentType.ReadOnly<PropertyPointer>(), _materialPropertyBlock);
 #endif
 #if !NSPRITES_EACH_UPDATE_DISABLE
             _perEntityPropertiesSpaceCounter.Allocated = preallocatedSpace;
@@ -215,7 +215,7 @@ namespace NSprites
             {
                 var propData = propertyDataSet[propIndex];
                 var propType = propertyMap[propData.PropertyID];
-                var prop = new InstancedProperty(propData.PropertyID, preallocatedSpace, UnsafeUtility.SizeOf(propType.GetManagedType()), propType);
+                var prop = new InstancedProperty(propData.PropertyID, preallocatedSpace, UnsafeUtility.SizeOf(propType.GetManagedType()), propType, _materialPropertyBlock);
 
                 PropertiesContainer.AddProperty(prop, propData.UpdateMode);
             }
@@ -527,7 +527,7 @@ namespace NSprites
             }
 #endif
             // TODO: remove this, seems like it is never used, because `used` and `allocated` is always the same in EachUpdate logic
-            _perEntityPropertiesSpaceCounter.Used = _entityCount;
+            //_perEntityPropertiesSpaceCounter.Used = _entityCount;
 #endif
             #endregion
 
