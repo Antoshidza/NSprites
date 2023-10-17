@@ -92,7 +92,7 @@ This sample project covers basics of rendering with NSprites. Use it to get a ma
 
 ### [Compatibility](https://github.com/Antoshidza/NSprites/wiki/Compatibility)
 There is few things we should care when talking about using NSprites in real projects. Since this package uses **GPU instancing**
-and `ComputeBuffer` on CPU side with `StructuredBuffer<T>` on GPU side (in shader) to send sprites data, we need platform and Graphics APU support
+and `ComputeBuffer` on CPU side with `StructuredBuffer<T>` on GPU side (in shader) to send sprites data, we need platform and Graphics API support
 this two.
 
 | **Graphics API**                     | **Description**                                             |
