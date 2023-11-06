@@ -122,4 +122,6 @@ I wish this project will be helpful for any ECS early adopters! So feel free to 
 You can contact with my [discord account](https://www.discordapp.com/users/219868910223228929) / join [discord server](https://discord.gg/rvxrHEFx8n)!
 Also there is a [thread](https://forum.unity.com/threads/1-0-3-nsprites-sprite-rendering-package.1367463/) on unity dots forum!
 
+Preferred way to send support: [BOOSTY](https://boosty.to/tonymax/donate)
+
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/antoshidzamax)
