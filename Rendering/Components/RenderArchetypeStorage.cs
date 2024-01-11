@@ -16,8 +16,6 @@ namespace NSprites
         internal readonly HashSet<int> RegisteredIds = new();
         /// <summary> System's state with all necessary data to pass to <see cref="RenderArchetype"/> to update </summary>
         internal SystemData SystemData;
-        
-        internal static Bounds DefaultBounds => new (Vector3.zero, Vector3.one * 1000f);
 
         internal void Dispose()
         {
@@ -67,21 +65,6 @@ namespace NSprites
             foreach (var property in InstancedPropertyComponent.GetProperties())
                 BindComponentToShaderProperty(property.propertyName, property.componentType);
         }
-
-        /// <summary>
-        /// Register render, which is combination of Material + set of StructuredBuffer property names in shader.
-        /// Every entity with <see cref="SpriteRenderID"/> component with ID value equal to passed ID, will be rendered by registered render.
-        /// Entity without instanced property component from passed properties will be rendered with uninitialized values (please, initialize entities carefully, because render with uninitialized values can lead to strange visual results).
-        /// Though you can use <b><see cref="NSPRITES_PROPERTY_FALLBACK_ENABLE"/></b> directive to enable fallback values, so any chunk without property component will pass default values.
-        /// <param name="id">ID of <see cref="SpriteRenderID"/>.<see cref="SpriteRenderID.id"/>. All entities with the same SCD will be updated by registering render archetype. Client should manage uniqueness (or not) of ids by himself.</param>
-        /// <param name="material"><see cref="Material"/> which will be used to render sprites.</param>
-        /// <param name="materialPropertyBlock"><see cref="MaterialPropertyBlock"/> you can pass if you want to do some extra overriding by yourself.</param>
-        /// <param name="propertyDataSet">IDs of StructuredBuffer properties in shader AND <see cref="PropertyUpdateMode"/> for each property.</param>
-        /// <param name="initialCapacity">compute buffers initial capacity.</param>
-        /// <param name="capacityStep">compute buffers capacity increase step when the current limit on the number of entities is exceeded.</param>
-        /// </summary>
-        public void RegisterRender(in int id, Material material, MaterialPropertyBlock materialPropertyBlock = null, in int initialCapacity = 1, in int capacityStep = 1, params PropertyData[] propertyDataSet)
-            => RegisterRender(id, material, Quad, DefaultBounds, materialPropertyBlock, initialCapacity, capacityStep, propertyDataSet);
         
         /// <summary>
         /// Register render, which is combination of Material + set of StructuredBuffer property names in shader.

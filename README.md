@@ -27,6 +27,7 @@ renderArchetypeStorage.RegisterRender
 (
     renderID,
     material,   // material with [Enable GPU Instancing] enabled and shader supporting instancing
+    bounds      // bounds in which sprites will be visible. For example new Bounds(Vector3.zero, Vector3.one * float.MaxValue)
     null,       // override for MaterialPropertyBlock if needed
     128,        // initial ComputeBuffers capacity
     128,        // minimal capacity step for ComputeBuffers
