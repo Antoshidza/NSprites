@@ -579,6 +579,7 @@ namespace NSprites
                 var cmd = CommandBufferUtilities.AcquireCommandBuffer();
                 cmd.Clear();
                 cmd.DrawMeshInstancedProcedural(_mesh, 0, Material, 0, _entityCount, _materialPropertyBlock);
+                CommandBufferUtilities.QueueCommandBufferForDraw(cmd);
             }
         }
         
