@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Rendering.Common;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -572,8 +573,13 @@ namespace NSprites
         /// <summary>Draws instances in quantity based on the number of entities related to this <see cref="RenderArchetype"/>. Call it after <see cref="ScheduleUpdate"/> and <see cref="CompleteUpdate"/>.</summary>
         public void Draw()
         {
-            if(_entityCount != 0)
-                Graphics.DrawMeshInstancedProcedural(_mesh, 0, Material, _bounds, _entityCount, _materialPropertyBlock);
+            if (_entityCount != 0)
+            {
+                // Graphics.DrawMeshInstancedProcedural(_mesh, 0, Material, _bounds, _entityCount, _materialPropertyBlock);
+                var cmd = CommandBufferUtilities.AcquireCommandBuffer();
+                cmd.Clear();
+                cmd.DrawMeshInstancedProcedural(_mesh, 0, Material, 0, _entityCount, _materialPropertyBlock);
+            }
         }
         
         /// <summary><inheritdoc cref="CompleteUpdate"/>
