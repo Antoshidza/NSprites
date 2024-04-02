@@ -6,40 +6,19 @@ namespace Rendering.Common
 {
     public static class CommandBufferUtilities
     {
-        private static Queue<CommandBuffer> _CommandBufferQueue = new Queue<CommandBuffer>();
-        private static Stack<CommandBuffer> _AvailablePool = new Stack<CommandBuffer>();
-
+        private static readonly Queue<CommandBuffer> DrawQueue = new();
+        private static readonly Stack<CommandBuffer> AvailablePool = new();
         
-        public static CommandBuffer AcquireCommandBuffer()
-        {
-            CommandBuffer commandbuffer;
-            if (_AvailablePool.Count > 0)
-            {
-                commandbuffer = _AvailablePool.Pop();
-            }
-            else
-            {
-                commandbuffer = new CommandBuffer();
-            }
+        public static CommandBuffer AcquireCommandBuffer() 
+            => AvailablePool.Count > 0 ? AvailablePool.Pop() : new CommandBuffer();
 
-            return commandbuffer;
-        }
-
-        public static void QueueCommandBufferForDraw(CommandBuffer cmd)
+        public static void QueueCommandBufferForDraw(CommandBuffer commandBuffer)
         {
-            _CommandBufferQueue.Enqueue(cmd);
-#if !NSPRITES_SRP
-            DrawImmediate();
+            DrawQueue.Enqueue(commandBuffer);
+#if !NSPRITES_SRP 
+            Debug.Log("Execute immediate");
+            Graphics.ExecuteCommandBuffer(DrawQueue.Dequeue());
 #endif
-        }
-
-        static void DrawImmediate()
-        {
-            if (_CommandBufferQueue.Count > 0)
-            {
-                var cmd = _CommandBufferQueue.Dequeue();
-                Graphics.ExecuteCommandBuffer(cmd);
-            }
         }
     }
 }
