@@ -138,6 +138,7 @@ namespace NSprites
                 new Vector2(1f, 0f)     //right down
             };
 
+            quad.RecalculateBounds();
             return quad;
         }
 
