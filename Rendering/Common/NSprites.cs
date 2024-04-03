@@ -89,7 +89,7 @@ namespace NSprites
         #endregion
 
         /// <summary>
-        /// Returns <b>Tiling and Offset</b> value which can be helpfull to locate texture on atlas in shader
+        /// Returns <b>Tiling and Offset</b> value which can be helpful to locate texture on atlas in shader
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector4 GetTextureST(Sprite sprite)
