@@ -20,5 +20,21 @@ namespace Rendering.Common
             Graphics.ExecuteCommandBuffer(DrawQueue.Dequeue());
 #endif
         }
+
+        public static List<CommandBuffer> GetCommandBuffersToDraw(int cullingMask)
+        {
+            //For now, ignore the culling mask need to design a better management
+            var list = new List<CommandBuffer>(DrawQueue);
+            DrawQueue.Clear();
+            return list;
+        }
+
+        public static void ReleaseCommandBuffersToPool(IList<CommandBuffer> cmdBuffers)
+        {
+            foreach (var cmd in cmdBuffers)
+            {
+                AvailablePool.Push(cmd);
+            }
+        }
     }
 }
