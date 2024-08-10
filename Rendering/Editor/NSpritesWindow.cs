@@ -10,7 +10,7 @@ namespace NSprites
 {
     public class NSpritesWindow : EditorWindow
     {
-        [MenuItem("Window/Entities/NSprites")]
+        [MenuItem("Window/Entities/NSprites", false, 3005)]
         public static void OpenWindow()
         {
             var window = GetWindow<NSpritesWindow>();
