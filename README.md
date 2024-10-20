@@ -87,7 +87,7 @@ This sample project covers basics of rendering with NSprites. Use it to get a ma
 ![RomeGIf](https://user-images.githubusercontent.com/19982288/204523105-7cabb122-954c-4fb0-97bc-becb27d2d2b9.gif)
 
 ## Games created with NSprites
-### [Reconquista](https://gunjung.itch.io/reconquista)
+### [Reconquista](https://store.steampowered.com/app/3222680/Reconquista/?beta=0)
 <img src="https://github.com/user-attachments/assets/d104eb90-e031-4b4a-abcc-637d157da757" width="48%"/>
 <img src="https://github.com/user-attachments/assets/e4b2bfdb-a8b9-490a-899f-2dedbac91bbe" width="48%"/>
 
