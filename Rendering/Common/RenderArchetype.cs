@@ -573,7 +573,15 @@ namespace NSprites
         public void Draw()
         {
             if(_entityCount != 0)
-                Graphics.DrawMeshInstancedProcedural(_mesh, 0, Material, _bounds, _entityCount, _materialPropertyBlock);
+            {
+                RenderParams rp = new RenderParams(Material) 
+                {
+                    matProps = _materialPropertyBlock,
+                    worldBounds = _bounds,
+                    receiveShadows = Material.enableInstancing，
+                };
+                Graphics.RenderMeshPrimitives(rp,_mesh, 0, _entityCount);
+            }
         }
         
         /// <summary><inheritdoc cref="CompleteUpdate"/>
