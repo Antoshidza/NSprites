@@ -229,7 +229,7 @@ namespace NSprites
                 array[index++] = (prop, PropertyUpdateMode.Static);
 #endif
             foreach (var prop in renderArchetype.PropertiesContainer.EachUpdate)
-                array[index++] = (prop, PropertyUpdateMode.Static);
+                array[index++] = (prop, PropertyUpdateMode.EachUpdate);
 
             return array;
         }
