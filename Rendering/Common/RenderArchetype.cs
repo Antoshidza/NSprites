@@ -578,7 +578,7 @@ namespace NSprites
                 {
                     matProps = _materialPropertyBlock,
                     worldBounds = _bounds,
-                    receiveShadows = Material.enableInstancing，
+                    receiveShadows = Material.enableInstancing
                 };
                 Graphics.RenderMeshPrimitives(rp,_mesh, 0, _entityCount);
             }

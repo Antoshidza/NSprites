@@ -1,6 +1,6 @@
 {
   "name": "com.tonymax.nsprites",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "displayName": "NSprites",
   "description": "Entities sprite rendering system. Uses GPU instancing with compute buffers to draw entities as sprites.",
   "unity": "2022.2",
